@@ -1,0 +1,7 @@
+{
+  "name": "Bucketeer",
+  "identifier": "dev.bucketeer.app",
+  "version": "0.1.0",
+  "main": ".",
+  "out": "build"
+}

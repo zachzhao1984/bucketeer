@@ -1,0 +1,8 @@
+node_modules/
+/dist/
+/build/
+/.mygo/
+/preview/
+r2.json
+*.local.json
+mygo_windows_*.syso
