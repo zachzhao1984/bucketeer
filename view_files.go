@@ -32,8 +32,6 @@ func (a *App) files(c *ui.Context) {
 	a.tableView(c, items)
 }
 
-// fileHeader sums up what is shown, and warns when the listing stopped
-// short of the folder's end.
 func (a *App) fileHeader(c *ui.Context, items []store.Entry) {
 	t := c.Theme()
 	source := a.source()
@@ -48,45 +46,49 @@ func (a *App) fileHeader(c *ui.Context, items []store.Entry) {
 		bytes += e.Size
 	}
 
-	ui.Row(c).Padding(12, 16).Gap(10).AlignItems(ui.Center).Children(func() {
-		ui.Text(c, summarizeListing(folders, files, bytes)).FontSize(12).TextColor(t.TextMuted)
-		if a.searchResults != nil {
-			ui.Badge(c, "Search results")
-		}
-		if source.Truncated {
-			ui.Badge(c, "More objects than shown")
-		}
-		ui.Spacer(c)
-		if a.loading {
-			ui.Spinner(c).Label("Loading")
-		}
-	})
+	ui.Row(c).
+		Padding(10, 16).
+		Gap(10).
+		AlignItems(ui.Center).
+		BorderWidth(0, 0, 1, 0).
+		BorderColor(t.Border).
+		Children(func() {
+			ui.Text(c, summarizeListing(folders, files, bytes)).FontSize(12).TextColor(t.TextMuted)
+			if a.searchResults != nil {
+				ui.Badge(c, "Deep search")
+			}
+			if source.Truncated {
+				ui.Badge(c, "Limit reached (10k items)")
+			}
+			ui.Spacer(c)
+			if a.loading {
+				ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
+					ui.Spinner(c).Label("Loading")
+					ui.Text(c, "Syncing…").FontSize(11).TextColor(t.TextMuted)
+				})
+			}
+		})
 }
 
-// filesEmpty draws the block the file area shows for an empty folder, an
-// empty bucket, or a search that found nothing.
 func (a *App) filesEmpty(c *ui.Context) {
 	switch {
 	case a.searchResults != nil:
-		emptyState(c, iconSearch, "Nothing found",
-			fmt.Sprintf("No object in %s matches “%s”.", a.bucket, a.search), func() {
-				if ui.PrimaryButton(c, "Show folder").Clicked() {
+		emptyState(c, iconSearch, "No matches found",
+			fmt.Sprintf("No object matching “%s” was found in %s.", a.search, a.bucket), func() {
+				if ui.PrimaryButton(c, "Clear search").Clicked() {
 					a.clearSearch()
 				}
 			})
 	case a.filter != "all":
-		emptyState(c, iconOther, "Nothing of that kind",
-			"This folder holds nothing the chosen type covers.", func() {
-				if ui.PrimaryButton(c, "Show everything").Clicked() {
+		emptyState(c, iconOther, "No files of this type",
+			"This folder contains no objects matching the selected filter.", func() {
+				if ui.PrimaryButton(c, "Show all types").Clicked() {
 					a.filter = "all"
-				}
-				if ui.Button(c, "Search the bucket").Clicked() {
-					a.deepSearch()
 				}
 			})
 	case a.prefix != "":
-		emptyState(c, iconFolder, "This folder is empty",
-			"Drop files here, or upload them to fill it.", func() {
+		emptyState(c, iconFolder, "Folder is empty",
+			"Drag and drop files here, or click Upload to add objects.", func() {
 				if ui.PrimaryButton(c, "Upload files").Clicked() {
 					a.upload()
 				}
@@ -95,8 +97,8 @@ func (a *App) filesEmpty(c *ui.Context) {
 				}
 			})
 	default:
-		emptyState(c, iconBucket, "This bucket is empty",
-			"Nothing has been uploaded here yet.", func() {
+		emptyState(c, iconBucket, "Bucket is empty",
+			"No objects have been uploaded to this bucket yet.", func() {
 				if ui.PrimaryButton(c, "Upload files").Clicked() {
 					a.upload()
 				}
@@ -108,14 +110,13 @@ func (a *App) filesEmpty(c *ui.Context) {
    The grid of cards
    ------------------------------------------------------------------------- */
 
-// gridView draws the folder as a grid of cards, each showing a thumbnail
-// when there is one.
 func (a *App) gridView(c *ui.Context, items []store.Entry) {
 	a.grid.Key = func(i int) any { return items[i].Key }
 	a.grid.Label = func(i int) string { return items[i].Name }
 	a.grid.Selection = &a.sel
 	a.grid.Selected = &a.cursor
-	g := ui.GridView(c, &a.grid, len(items), 170, 176, func(i int) {
+
+	g := ui.GridView(c, &a.grid, len(items), 156, 168, func(i int) {
 		a.card(c, items[i])
 	}).Grow(1)
 	if a.cursor >= 0 && a.cursor < len(items) && g.Submitted() {
@@ -123,46 +124,83 @@ func (a *App) gridView(c *ui.Context, items []store.Entry) {
 	}
 }
 
-// card draws one file in the grid.
 func (a *App) card(c *ui.Context, e store.Entry) {
 	t := c.Theme()
 	chosen := a.sel.Has(e.Key)
-	card := ui.Column(c).Key(e.Key).Padding(10).Gap(6).Radius(t.Radius).
-		Border(1, t.Border).Cursor(ui.CursorPointer)
+	kind := kindOf(e.Key, e.Folder)
+
+	card := ui.Column(c).
+		Key(e.Key).
+		Padding(8).
+		Gap(6).
+		Radius(t.Radius).
+		Border(1, t.Border).
+		Background(t.Surface).
+		Cursor(ui.CursorPointer)
+
 	switch {
 	case chosen:
-		card.Background(t.Selection).Border(1, t.Accent)
+		card.Background(t.Selection).Border(1.5, t.Accent)
 	case card.Hovered():
 		card.Background(t.SurfaceHover)
 	}
+
 	card.ContextMenu(func(m *ui.Menu) { a.entryMenu(m, e) })
+
 	card.Children(func() {
-		ui.Box(c).FillWidth().Height(96).Radius(max(t.Radius-2, 2)).Clip().Center().Children(func() {
-			a.thumbnail(c, e)
+		// Thumbnail container with soft tinted background wash
+		ui.Box(c).
+			FillWidth().
+			Height(96).
+			Radius(6).
+			Background(kindSoftBg(t, kind)).
+			Clip().
+			Center().
+			Children(func() {
+				a.thumbnail(c, e, kind)
+			})
+
+		// File Name and Detail
+		ui.Column(c).Gap(2).Padding(2, 4, 2, 4).Children(func() {
+			nameColor := t.Text
+			if chosen {
+				nameColor = t.Accent
+			}
+			ui.Text(c, e.Name).
+				FontSize(12).
+				Bold().
+				TextColor(nameColor).
+				SingleLine().
+				Ellipsis("…").
+				Label(e.Name)
+
+			ui.Text(c, cardDetail(e)).
+				FontSize(10.5).
+				TextColor(t.TextMuted).
+				SingleLine().
+				Ellipsis("…")
 		})
-		ui.Text(c, e.Name).FontSize(12.5).SingleLine().Ellipsis("…").Label(e.Name)
-		ui.Text(c, cardDetail(e)).FontSize(11).TextColor(t.TextMuted).SingleLine().Ellipsis("…")
 	})
 }
 
-// thumbnail draws what stands for a file in a card: its picture when the
-// app has one, its icon otherwise.
-func (a *App) thumbnail(c *ui.Context, e store.Entry) {
+func (a *App) thumbnail(c *ui.Context, e store.Entry, kind fileKind) {
 	t := c.Theme()
 	if bmp := a.thumbs[e.Key]; bmp != nil {
-		ui.Image(c, bmp).Fit(ui.Contain).Grow(1)
+		ui.Image(c, bmp).Fit(ui.Cover).Fill().Radius(6)
 		return
 	}
-	kind := kindOf(e.Key, e.Folder)
 	if a.thumbLoading[e.Key] {
 		ui.Spinner(c).Label("Loading " + e.Name)
 		return
 	}
-	ui.Icon(c, entryIcon(e)).FontSize(34).TextColor(kindTint(t, kind))
+
+	iconSize := float32(42)
+	if e.Folder {
+		iconSize = 46
+	}
+	ui.Icon(c, entryIcon(e)).FontSize(iconSize).TextColor(kindTint(t, kind))
 }
 
-// cardDetail describes an entry under its name: a folder says how it is
-// marked, a file its size and when it changed.
 func cardDetail(e store.Entry) string {
 	if e.Folder {
 		return "Folder"
@@ -178,20 +216,19 @@ func cardDetail(e store.Entry) string {
    The table
    ------------------------------------------------------------------------- */
 
-// tableView draws the folder as a table, with a header that sorts it.
 func (a *App) tableView(c *ui.Context, items []store.Entry) {
 	a.fileList.Key = func(i int) any { return items[i].Key }
 	a.fileList.Label = func(i int) string { return items[i].Name }
 	a.fileList.Selection = &a.sel
 	a.fileList.Selected = &a.cursor
 	a.fileList.Sort = &a.tableSort
-	a.fileList.RoundRows = false
+	a.fileList.RoundRows = true
 
 	columns := []ui.TableColumn{
-		{Title: "Name", ID: string(sortName), MinWidth: 160, Sortable: true},
-		{Title: "Kind", ID: "kind", Width: 150},
+		{Title: "Name", ID: string(sortName), MinWidth: 200, Sortable: true},
+		{Title: "Kind", ID: "kind", Width: 140},
 		{Title: "Size", ID: string(sortSize), Width: 110, Align: ui.End, Sortable: true},
-		{Title: "Modified", ID: string(sortModified), Width: 190, Sortable: true},
+		{Title: "Modified", ID: string(sortModified), Width: 180, Sortable: true},
 	}
 	table := ui.Table(c, &a.fileList, columns, len(items), func(row, col int) {
 		if row < 0 || row >= len(items) {
@@ -204,17 +241,17 @@ func (a *App) tableView(c *ui.Context, items []store.Entry) {
 	}
 }
 
-// cell draws one cell of the table.
 func (a *App) cell(c *ui.Context, e store.Entry, col int) {
 	t := c.Theme()
+	kind := kindOf(e.Key, e.Folder)
 	switch col {
 	case 0:
-		ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-			ui.Icon(c, entryIcon(e)).FontSize(15).TextColor(kindTint(t, kindOf(e.Key, e.Folder)))
+		ui.Row(c).Gap(8).AlignItems(ui.Center).Padding(4, 0).Children(func() {
+			ui.Icon(c, entryIcon(e)).FontSize(16).TextColor(kindTint(t, kind))
 			ui.Text(c, e.Name).FontSize(12.5).SingleLine().Ellipsis("…")
 		})
 	case 1:
-		ui.Text(c, kindLabel(kindOf(e.Key, e.Folder), e.Key)).FontSize(12).TextColor(t.TextMuted).SingleLine()
+		ui.Text(c, kindLabel(kind, e.Key)).FontSize(12).TextColor(t.TextMuted).SingleLine()
 	case 2:
 		ui.Text(c, sizeText(e)).FontSize(12).TextColor(t.TextMuted).SingleLine()
 	case 3:
@@ -222,7 +259,6 @@ func (a *App) cell(c *ui.Context, e store.Entry, col int) {
 	}
 }
 
-// sizeText is how a row's size reads: a folder has none of its own.
 func sizeText(e store.Entry) string {
 	if e.Folder {
 		return "—"
@@ -230,7 +266,6 @@ func sizeText(e store.Entry) string {
 	return formatBytes(e.Size)
 }
 
-// modifiedText is how a row's date reads.
 func modifiedText(e store.Entry) string {
 	if e.LastModified.IsZero() {
 		return "—"
@@ -242,16 +277,14 @@ func modifiedText(e store.Entry) string {
    Buckets
    ------------------------------------------------------------------------- */
 
-// bucketsView lists the endpoint's buckets, which is what the file area
-// shows before one is opened.
 func (a *App) bucketsView(c *ui.Context) {
 	t := c.Theme()
 	switch {
 	case a.loading && len(a.buckets) == 0:
 		skeletons(c)
 	case len(a.buckets) == 0:
-		emptyState(c, iconBucket, "No buckets here",
-			"The endpoint answered, but it has no buckets this key can see.", func() {
+		emptyState(c, iconBucket, "No buckets available",
+			"The connection answered successfully, but no buckets are accessible with these credentials.", func() {
 				if ui.PrimaryButton(c, "New bucket").Clicked() {
 					a.openNewBucket()
 				}
@@ -260,15 +293,21 @@ func (a *App) bucketsView(c *ui.Context) {
 				}
 			})
 	default:
-		ui.Row(c).Padding(12, 16).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, plural(len(a.buckets), "bucket", "buckets")).FontSize(12).TextColor(t.TextMuted)
-			ui.Spacer(c)
-			if ui.PrimaryButton(c, "New bucket").Clicked() {
-				a.openNewBucket()
-			}
-		})
+		ui.Row(c).
+			Padding(12, 18).
+			AlignItems(ui.Center).
+			BorderWidth(0, 0, 1, 0).
+			BorderColor(t.Border).
+			Children(func() {
+				ui.Text(c, plural(len(a.buckets), "bucket", "buckets")).FontSize(12).Bold().TextColor(t.TextMuted)
+				ui.Spacer(c)
+				if ui.PrimaryButton(c, "New bucket").Clicked() {
+					a.openNewBucket()
+				}
+			})
+
 		ui.Scroll(c).Grow(1).Children(func() {
-			ui.Column(c).Gap(6).Padding(0, 16, 16, 16).Children(func() {
+			ui.Column(c).Gap(8).Padding(16).Children(func() {
 				for _, b := range a.buckets {
 					a.bucketRow(c, b)
 				}
@@ -277,34 +316,41 @@ func (a *App) bucketsView(c *ui.Context) {
 	}
 }
 
-// bucketRow draws one bucket, which opens on a double click and offers its
-// own actions on a right click.
 func (a *App) bucketRow(c *ui.Context, b store.Bucket) {
 	t := c.Theme()
-	row := ui.Row(c).Key(b.Name).Padding(12).Gap(12).AlignItems(ui.Center).
-		Radius(t.Radius).Border(1, t.Border).Cursor(ui.CursorPointer)
+	row := ui.Row(c).
+		Key(b.Name).
+		Padding(12, 16).
+		Gap(14).
+		AlignItems(ui.Center).
+		Radius(8).
+		Border(1, t.Border).
+		Background(t.Surface).
+		Cursor(ui.CursorPointer)
+
 	if row.Hovered() {
 		row.Background(t.SurfaceHover)
 	}
+
 	row.ContextMenu(func(m *ui.Menu) { a.bucketMenu(m, b) })
 	row.Focusable()
 	row.OnClick(func() { a.openBucket(b.Name) })
+
 	row.Children(func() {
-		ui.Box(c).Size(34, 34).Radius(9).Background(t.SurfaceHover).Center().Children(func() {
-			ui.Icon(c, iconBucket).FontSize(18).TextColor(t.Accent)
+		ui.Box(c).Size(36, 36).Radius(8).Background(kindSoftBg(t, kindFolder)).Center().Children(func() {
+			ui.Icon(c, iconBucket).FontSize(20).TextColor(t.Accent)
 		})
-		ui.Column(c).Grow(1).Gap(1).Children(func() {
-			ui.Text(c, b.Name).FontSize(13).Bold().SingleLine().Ellipsis("…")
+		ui.Column(c).Grow(1).Gap(3).Children(func() {
+			ui.Text(c, b.Name).FontSize(13.5).Bold().SingleLine().Ellipsis("…")
 			ui.Text(c, createdText(b)).FontSize(11).TextColor(t.TextMuted).SingleLine()
 		})
-		ui.Icon(c, iconChevron).FontSize(14).TextColor(t.TextMuted)
+		ui.Icon(c, iconChevron).FontSize(13).TextColor(t.TextMuted)
 	})
 }
 
-// createdText describes when a bucket was made, when the endpoint said.
 func createdText(b store.Bucket) string {
 	if b.Created.IsZero() {
-		return "Bucket"
+		return "S3 Bucket"
 	}
 	return "Created " + formatRelative(b.Created, now())
 }
@@ -313,11 +359,7 @@ func createdText(b store.Bucket) string {
    Menus
    ------------------------------------------------------------------------- */
 
-// entryMenu fills the menu a file offers: the actions that apply to it,
-// and to the whole selection when it is part of one.
 func (a *App) entryMenu(m *ui.Menu, e store.Entry) {
-	// A right click on something outside the selection acts on it alone,
-	// as in a file manager.
 	if !a.sel.Has(e.Key) {
 		a.chooseOnly(e.Key)
 	}
@@ -360,12 +402,11 @@ func (a *App) entryMenu(m *ui.Menu, e store.Entry) {
 	}
 }
 
-// bucketMenu fills the menu a bucket offers.
 func (a *App) bucketMenu(m *ui.Menu, b store.Bucket) {
 	if m.Item("Open").Chosen() {
 		a.openBucket(b.Name)
 	}
-	if m.Item("Measure").Chosen() {
+	if m.Item("Measure storage").Chosen() {
 		a.bucket = b.Name
 		a.prefix = ""
 		a.section = sectionDashboard
@@ -373,7 +414,7 @@ func (a *App) bucketMenu(m *ui.Menu, b store.Bucket) {
 		a.loadStat()
 	}
 	m.Separator()
-	if m.Item("Copy name").Chosen() {
+	if m.Item("Copy bucket name").Chosen() {
 		a.copyText(b.Name, "Name copied")
 	}
 	m.Separator()

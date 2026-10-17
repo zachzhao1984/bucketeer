@@ -878,7 +878,7 @@ func (s *Service) Info() AppInfo {
 		Version:  "0.1.0",
 		Platform: runtime.GOOS,
 	}
-	if name := mygo.App.Name(); name != "" {
+	if name := mygo.App.Name(); name != "" && !strings.HasSuffix(name, ".test") {
 		out.Name = name
 	}
 	if ver := mygo.App.Version(); ver != "" {
