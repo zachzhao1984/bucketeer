@@ -298,8 +298,13 @@ func (a *App) current(token int) bool { return token == a.seq }
 // browsing reports whether a bucket is open.
 func (a *App) browsing() bool { return a.bucket != "" }
 
-// setSection shows another part of the app.
+// setSection shows another part of the app. There is no dashboard
+// without a connection to measure, so asking for one before there is
+// leaves the window where it can actually do something.
 func (a *App) setSection(s Section) {
+	if s == sectionDashboard && !a.session.Connected {
+		s = sectionFiles
+	}
 	if a.section == s {
 		return
 	}

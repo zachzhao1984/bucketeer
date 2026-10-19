@@ -72,6 +72,35 @@ those metrics: the sidebar reserves the title bar's strip as a window drag
 area (`DragWindow()`), and the toolbar clears the window controls and handles
 fullscreen switches cleanly.
 
+## The look
+
+The window is two planes. The functional plane — the sidebar and the bar
+along the top — sits on the window's own material (`mygo.VibrancySidebar`),
+so both stay translucent over whatever is behind the window. The content plane
+below is painted opaque. A single hairline down the side is all that tells the
+two apart.
+
+Nothing in the app is a bevel. A surface is a fill and, where it needs telling
+apart from what is next to it, a hairline; shadow is spent only where
+something genuinely floats above the window — menus, popovers, and dialogs.
+The app has a point of view rather than a theme to match: it is a file
+browser, so the content carries the color and the chrome stays out of its
+way. The only hue in the interface is the accent, used for the one primary
+action, for the chosen place, and for the glyph that names a kind of file.
+
+`theme.go` holds the tokens — surfaces, hairlines, washes, and two palettes,
+one per appearance. `chrome.go` paints them and builds the controls from
+them. Type is four sizes: `typeCaption` for counts and hints, `typeBody` for
+everything a person reads, `typeHeadline` for dialog and section titles, and
+`typeTitle` for the bucket on the dashboard.
+
+Contrast was chosen from the numbers rather than by eye. Body text is 17:1 on
+the canvas in light and 15.8:1 in dark; secondary text is above 5.5:1 in
+both, rather than the roughly 2.7:1 Apple's own secondary label uses; a
+filled button's label clears 5.9:1 in light; and every file-kind glyph is at
+least 4.5:1, because on a card it may be the only thing telling two kinds of
+file apart.
+
 ## Layout
 
 ```
@@ -79,7 +108,8 @@ main.go                     native window setup, application menus, lifecycle
 app.go                      central application state and background worker synchronization
 service.go                  storage client integration and credential handling
 actions.go                  upload/download, CRUD, sharing and transfer operations
-theme.go                    light and dark palette definitions for MyGo ui.Theme
+theme.go                    design tokens, the two palettes, the type scale, file-kind colors
+chrome.go                   surfaces, buttons, fields, nav rows, meters and dialogs painted from those tokens
 icons.go                    reusable embedded SVG vector icons
 format.go                   byte sizes, relative dates, file classifications
 preview.go                  image decoding and dimension safety guards

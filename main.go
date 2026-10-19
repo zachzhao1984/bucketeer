@@ -17,6 +17,10 @@ func main() {
 		win := mygo.NewWindow(mygo.WindowOptions{
 			Title: appName, Width: 1180, Height: 760, MinWidth: 900, MinHeight: 560,
 			TitleBarStyle: mygo.TitleBarHiddenInset, TitleBarHeight: 52,
+			BackgroundColor: "light-dark(#e7e7eb, #121214)",
+			// The sidebar and the bar along the top share the window's
+			// own material; the content plane is painted over it.
+			Vibrancy: mygo.VibrancySidebar,
 			StateKey: "main", Content: ui.View(app.view),
 		})
 		app.attach(win)

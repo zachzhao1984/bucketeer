@@ -21,7 +21,7 @@ func TestNativeNavigationAndConnectionForm(t *testing.T) {
 	a := nativeTestApp(t)
 	tester := ui.NewTester(a.view, 1180, 760)
 	tester.SetTitleBar(ui.TitleBar{Height: 52, Left: 79})
-	if !tester.HasText("Connect your storage") {
+	if !tester.HasText("Connect Your Storage") {
 		t.Fatal(tester.Texts())
 	}
 	if err := tester.Click("Settings"); err != nil {
@@ -31,11 +31,11 @@ func TestNativeNavigationAndConnectionForm(t *testing.T) {
 	if !tester.HasText("Browsing") {
 		t.Fatalf("Settings did not open: %v", tester.Texts())
 	}
-	if err := tester.Click("Add connection"); err != nil {
+	if err := tester.Click("Add Connection"); err != nil {
 		t.Fatal(err)
 	}
 	tester.Frame()
-	if !tester.HasText("New connection") {
+	if !tester.HasText("New Connection") {
 		t.Fatal("connection form missing")
 	}
 	if err := tester.Click("Name"); err != nil {
@@ -186,6 +186,14 @@ func TestGenerateShots(t *testing.T) {
 		a.ask("Delete “photo.png”?", "This cannot be undone.", "Delete", func() {})
 		save(tester, "confirm.png")
 		a.confirm.open = false
+
+		// 8. The narrowest the window is allowed to get.
+		a.mode = viewGrid
+		tester.SetSize(900, 560)
+		save(tester, "files-compact.png")
+		a.mode = viewList
+		save(tester, "list-compact.png")
+		tester.SetSize(1180, 760)
 	}
 
 	// 6. Dashboard (light and dark)

@@ -10,7 +10,7 @@ var typeFilters = []struct {
 	Label string
 	Kind  string
 }{
-	{"All types", "all"},
+	{"All Types", "all"},
 	{"Folders", "folders"},
 	{"Images", "image"},
 	{"Video", "video"},
@@ -39,56 +39,63 @@ func (a *App) filterLabel() string {
 
 /* -------------------------------------------------------------------------
    Toolbar
+
+   Three groups, and no more: where you are, how the files are shown,
+   and what you can do to them. The one primary action sits at the very
+   end of the trailing edge.
    ------------------------------------------------------------------------- */
 
-func (a *App) topBar(c *ui.Context, bar ui.TitleBar) {
+// topBar is the strip of controls along the top of the window. It shares
+// the window's material with the sidebar, and a single hairline is all
+// that tells it apart from the content below.
+func (a *App) topBar(c *ui.Context) {
 	t := c.Theme()
-	ui.Row(c).
+	ch := chromeOf(t)
+	bar := c.TitleBar()
+
+	strip := ui.Row(c).
+		FillWidth().
 		Height(headerHeight(bar)).
-		Padding(0, max(8, bar.Right-4), 0, 8).
+		Padding(0, max(bar.Right, 14), 0, 8).
 		Gap(8).
 		AlignItems(ui.Center).
-		DragWindow().
-		Children(func() {
-			a.breadcrumbs(c)
+		Background(ui.Transparent).
+		Border(0, ui.Transparent).
+		DragWindow()
+	strip = paintMaterial(c, strip)
+	strip.Draw(func(p *ui.Painter, r ui.Rect) {
+		p.Fill(ui.Rect{X: r.X, Y: r.Y + r.H - 1, W: r.W, H: 1}, ch.hairlineEdge, 0)
+	})
 
-			if a.section == sectionSettings {
-				ui.Spacer(c).DragWindow()
-				return
-			}
-			if !a.browsing() {
-				ui.Spacer(c).DragWindow()
-				if a.session.Connected {
-					a.viewChooser(c)
-				}
-				return
-			}
+	strip.Children(func() {
+		a.toolbarLeading(c)
 
-			a.fileActions(c)
-			ui.Spacer(c).DragWindow()
+		ui.Spacer(c).Grow(1)
+
+		if a.browsing() {
 			a.viewChooser(c)
 			a.searchField(c)
-		})
-	_ = t
+			ui.Box(c).Width(1).Height(18).Margin(0, 2).Background(ch.hairline)
+		}
+		a.toolbarActions(c)
+	})
 }
 
-func (a *App) breadcrumbs(c *ui.Context) {
+// toolbarLeading says where you are: the way back up, and the path.
+func (a *App) toolbarLeading(c *ui.Context) {
 	t := c.Theme()
+
 	if !a.browsing() {
-		title := appName
-		if a.section == sectionDashboard {
-			title = "Dashboard"
-		} else if a.section == sectionSettings {
-			title = "Settings"
-		}
-		ui.Text(c, title).FontSize(14).Bold().Padding(0, 6).TextColor(t.Text)
+		ui.Text(c, a.sectionTitle()).
+			FontSize(typeBody).
+			FontWeight(weightSemi).
+			TextColor(t.Text).
+			Padding(0, 6)
 		return
 	}
 
-	// Back / Up button
-	up := ui.Button(c.Key("up"), "").Label("Parent folder").Tooltip("Go to parent folder (⌘↑)").
-		Disabled(a.prefix == "" && !a.browsing())
-	up.Children(func() { ui.Icon(c, iconUp).FontSize(14) })
+	up := ctlIconButtonBare(c, "Parent Folder").Tooltip("Go to parent folder (⌘↑)")
+	up.Children(func() { ui.Icon(c, iconUp).FontSize(14).TextColor(t.Text) })
 	if up.Clicked() {
 		a.goUp()
 	}
@@ -101,139 +108,181 @@ func (a *App) breadcrumbs(c *ui.Context) {
 		prefixes = append(prefixes, crumb.Prefix)
 	}
 	a.crumb = len(labels) - 1
-	if ui.Breadcrumbs(c.Key("crumbs"), labels, &a.crumb).Label("Path").Changed() {
+
+	path := ui.Breadcrumbs(c.Key("crumbs"), labels, &a.crumb).
+		Label("Path").
+		MinWidth(120).
+		FontSize(typeBody)
+	if path.Changed() {
 		if a.crumb >= 0 && a.crumb < len(prefixes) {
-			a.section = sectionFiles
+			a.setSection(sectionFiles)
 			a.openPrefix(prefixes[a.crumb])
 		}
 	}
 }
 
-func (a *App) fileActions(c *ui.Context) {
+// toolbarActions are the things that can be done to what is being shown.
+func (a *App) toolbarActions(c *ui.Context) {
+	t := c.Theme()
+
 	if a.hasSelection() {
 		a.selectionActions(c)
 		return
 	}
 
-	// New folder action
-	newFolder := ui.Button(c.Key("new-folder"), "").Label("New folder").Tooltip("Create folder (⌘⇧N)")
-	newFolder.Children(func() { ui.Icon(c, iconNewFile).FontSize(14) })
-	if newFolder.Clicked() {
-		a.openNewFolder()
+	if a.section == sectionSettings || !a.session.Connected {
+		return
 	}
 
-	// Refresh action
-	refresh := ui.Button(c.Key("refresh"), "").Label("Refresh").Tooltip("Reload listing (⌘R)")
-	refresh.Children(func() { ui.Icon(c, iconRefresh).FontSize(14) })
+	// As the window narrows, the toolbar sheds the items that have
+	// somewhere else to live: New Folder is in the More menu, and the
+	// type filter gives its width back. Nothing reaches the edge.
+	if !compactWindow(c) {
+		newFolder := ctlIconButtonBare(c, "New Folder").Tooltip("Create folder (⌘⇧N)")
+		newFolder.Children(func() { ui.Icon(c, iconNewFile).FontSize(15).TextColor(t.Text) })
+		if newFolder.Clicked() {
+			a.openNewFolder()
+		}
+	}
+
+	refresh := ctlIconButtonBare(c, "Refresh").Tooltip("Reload listing (⌘R)")
+	refresh.Children(func() { ui.Icon(c, iconRefresh).FontSize(15).TextColor(t.Text) })
 	if refresh.Clicked() {
 		a.refresh()
 	}
 
-	// More options popover
-	more := ui.Button(c.Key("more"), "").Label("More options").Tooltip("More bucket actions")
-	more.Children(func() { ui.Icon(c, iconMore).FontSize(14) })
+	more := ctlIconButtonBare(c, "More Options").Tooltip("More bucket actions")
+	more.Children(func() { ui.Icon(c, iconMore).FontSize(15).TextColor(t.Text) })
 	if more.Clicked() {
 		a.menuOpen = !a.menuOpen
 	}
 	ui.Popover(c, more, &a.menuOpen, func() {
-		ui.Column(c).Width(180).Padding(4).Gap(2).Children(func() {
-			if menuItem(c, "New bucket…", "bucket") {
-				a.menuOpen = false
-				a.openNewBucket()
-			}
-			if menuItem(c, "Measure storage", "dashboard") {
-				a.menuOpen = false
-				a.section = sectionDashboard
-				a.stat = nil
-				a.loadStat()
-			}
-			divider(c)
-			if menuItem(c, "Copy S3 path", "copy") {
-				a.menuOpen = false
-				a.copyText(a.location(), "S3 path copied")
-			}
-		})
+		a.bucketMenuPopover(c)
 	})
 
-	// Primary Upload Button
-	upload := ui.PrimaryButton(c.Key("upload"), "").Label("Upload")
+	upload := ctlPrimary(c, "").Tooltip("Upload files (⌘O)")
 	upload.Children(func() {
-		ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
-			ui.Icon(c, iconUpload).FontSize(13)
-			ui.Text(c, "Upload").Bold().FontSize(12.5)
-		})
+		ui.Icon(c, iconUpload).FontSize(13)
+		ui.Text(c, "Upload").FontSize(typeBody)
 	})
 	if upload.Clicked() {
 		a.upload()
 	}
 }
 
+// bucketMenuPopover holds the bucket-wide actions that do not deserve a
+// place of their own in the toolbar.
+func (a *App) bucketMenuPopover(c *ui.Context) {
+	ui.Column(c).Width(210).Children(func() {
+		if menuItem(c, "New Folder…", "newfile") {
+			a.menuOpen = false
+			a.openNewFolder()
+		}
+		if menuItem(c, "New Bucket…", "bucket") {
+			a.menuOpen = false
+			a.openNewBucket()
+		}
+		divider(c)
+		if menuItem(c, "Measure Storage", "dashboard") {
+			a.menuOpen = false
+			a.setSection(sectionDashboard)
+			a.stat = nil
+			a.loadStat()
+		}
+		if menuItem(c, "Copy S3 Path", "copy") {
+			a.menuOpen = false
+			a.copyText(a.location(), "S3 path copied")
+		}
+	})
+}
+
+// selectionActions act on what is chosen, and replace the usual actions
+// while something is.
 func (a *App) selectionActions(c *ui.Context) {
 	t := c.Theme()
 	count := a.sel.Len()
 
-	ui.Row(c).Gap(6).AlignItems(ui.Center).Padding(4, 8).Radius(6).
-		Background(t.Selection).Children(func() {
-		ui.Text(c, plural(count, "item", "items")).FontSize(12).Bold().TextColor(t.Accent)
+	tally := ui.Row(c).Gap(5).AlignItems(ui.Center).Padding(4, 9).Radius(btnRadius).
+		Shrink(0).Background(chromeOf(t).selected)
+	tally.Children(func() {
+		ui.Text(c, plural(count, "item", "items")).
+			FontSize(typeCaption).
+			FontWeight(weightSemi).
+			TextColor(t.Text).
+			SingleLine()
 	})
 
-	download := ui.Button(c.Key("download"), "Download").Tooltip("Download selected")
+	download := ctlButton(c, "Download")
 	download.Children(func() {
-		ui.Row(c).Gap(4).AlignItems(ui.Center).Children(func() {
-			ui.Icon(c, iconDownload).FontSize(13)
-			ui.Text(c, "Download").FontSize(12)
-		})
+		ui.Icon(c, iconDownload).FontSize(13).TextColor(t.Text)
+		ui.Text(c, "Download").FontSize(typeBody)
 	})
 	if download.Clicked() {
 		a.download()
 	}
 
-	move := ui.Button(c.Key("move"), "Move").Tooltip("Move to folder")
+	move := ctlButton(c, "Move…")
 	move.Children(func() {
-		ui.Row(c).Gap(4).AlignItems(ui.Center).Children(func() {
-			ui.Icon(c, iconMove).FontSize(13)
-			ui.Text(c, "Move…").FontSize(12)
-		})
+		ui.Icon(c, iconMove).FontSize(13).TextColor(t.Text)
+		ui.Text(c, "Move…").FontSize(typeBody)
 	})
 	if move.Clicked() {
 		a.openMove()
 	}
 
-	del := ui.Button(c.Key("delete"), "").Tooltip("Delete selected")
-	del.Children(func() { ui.Icon(c, iconTrash).FontSize(13).TextColor(t.Danger) })
+	del := ctlIconButtonBare(c, "Delete").Tooltip("Delete selected")
+	del.Children(func() { ui.Icon(c, iconTrash).FontSize(14).TextColor(t.Danger) })
 	if del.Clicked() {
 		a.deleteChosen()
 	}
 
-	if ui.Button(c.Key("clear"), "Done").Tooltip("Deselect all (Esc)").Clicked() {
+	done := ctlIconButtonBare(c, "Done").Tooltip("Deselect all (esc)")
+	done.Children(func() { ui.Icon(c, iconClose).FontSize(13).TextColor(t.Text) })
+	if done.Clicked() {
 		a.sel.Clear()
 	}
 }
 
+// viewChooser holds the grid/list switch and the type filter.
 func (a *App) viewChooser(c *ui.Context) {
-	// Mode switcher (Grid / List)
-	ui.ToggleGroup(c.Key("mode"), func() {
+	ch := chromeOf(c.Theme())
+	t := c.Theme()
+
+	track := ui.ToggleGroup(c.Key("mode"), func() {
 		gridOn := a.mode == viewGrid
-		grid := ui.Toggle(c, &gridOn, "").Label("Grid view").Tooltip("Grid view")
-		grid.Children(func() { ui.Icon(c, iconGrid).FontSize(14) })
+		grid := ctlSegment(c, &gridOn, "Grid View")
+		grid.Children(func() {
+			ui.Icon(c, iconGrid).FontSize(14).TextColor(segmentTint(gridOn, t)).Shrink(0)
+		})
 		grid.OnClick(func() {
 			gridOn = true
 			a.setViewMode(viewGrid)
 		})
 
 		listOn := a.mode == viewList
-		list := ui.Toggle(c, &listOn, "").Label("List view").Tooltip("List view")
-		list.Children(func() { ui.Icon(c, iconList).FontSize(14) })
+		list := ctlSegment(c, &listOn, "List View")
+		list.Children(func() {
+			ui.Icon(c, iconList).FontSize(14).TextColor(segmentTint(listOn, t)).Shrink(0)
+		})
 		list.OnClick(func() {
 			listOn = true
 			a.setViewMode(viewList)
 		})
-	}).Label("View as")
+	}).Label("View As")
+	track = track.Background(ui.Transparent).Border(0, ui.Transparent).
+		Padding(2).Radius(btnRadius + 2).Gap(0).
+		Draw(func(p *ui.Painter, r ui.Rect) {
+			paintSurface(p, r, btnRadius+2, ch.inset, ui.Transparent)
+		})
 
-	// Filter dropdown
+	filterWidth := float32(116)
+	if compactWindow(c) {
+		filterWidth = 96
+	}
 	filter := a.filterLabel()
-	if ui.Select(c.Key("filter"), &filter, filterLabels()).Label("Type").Width(110).
-		Tooltip("Filter by file type").Changed() {
+	sel := ctlSelect(c, "filter", &filter, filterLabels(), filterWidth)
+	sel.Label("Type").Tooltip("Filter by file type")
+	if sel.Changed() {
 		for _, f := range typeFilters {
 			if f.Label == filter {
 				a.filter = f.Kind
@@ -243,8 +292,24 @@ func (a *App) viewChooser(c *ui.Context) {
 	}
 }
 
+// segmentTint keeps a segment's glyph in step with its own label color.
+func segmentTint(on bool, t *ui.Theme) ui.Color {
+	if on {
+		return t.Text
+	}
+	return t.TextMuted
+}
+
 func (a *App) searchField(c *ui.Context) {
-	field := ui.SearchField(c.Key("search"), &a.search).Label("Search objects").Width(180)
+	t := c.Theme()
+
+	width := float32(176)
+	if compactWindow(c) {
+		width = 128
+	}
+
+	field := ui.SearchField(c.Key("search"), &a.search).Label("Search objects").Width(width)
+	field = ctlField(c, field)
 	switch {
 	case field.Submitted():
 		a.deepSearch()
@@ -252,32 +317,49 @@ func (a *App) searchField(c *ui.Context) {
 		a.searchResults = nil
 		a.sel.Clear()
 	}
+
 	if a.searchResults != nil {
-		if ui.Button(c.Key("show-folder"), "Folder").Tooltip("Clear search").Clicked() {
+		clear := ctlIconButtonBare(c, "Clear Search").Tooltip("Clear search")
+		clear.Children(func() { ui.Icon(c, iconClose).FontSize(12).TextColor(t.Text) })
+		if clear.Clicked() {
 			a.clearSearch()
 		}
 	}
 }
 
 /* -------------------------------------------------------------------------
-   Content Shell
+   Content
    ------------------------------------------------------------------------- */
+
+// sectionTitle is what the toolbar says when there is no path to show.
+// It always agrees with what the sidebar marks as chosen.
+func (a *App) sectionTitle() string {
+	switch {
+	case a.section == sectionSettings:
+		return "Settings"
+	case a.section == sectionDashboard && a.session.Connected:
+		return "Dashboard"
+	case a.session.Connected:
+		return "Buckets"
+	default:
+		return "Files"
+	}
+}
 
 func (a *App) content(c *ui.Context) {
 	t := c.Theme()
-	col := ui.Column(c).
-		Grow(1).
-		FillHeight().
-		Background(t.Surface).
-		Border(1, t.Border).
-		Radius(t.Radius).
-		Clip()
+
+	col := ui.Column(c).Grow(1).FillHeight().Background(ui.Transparent)
 
 	if dropped := col.DroppedFiles(); len(dropped) > 0 {
 		a.uploadPaths(dropped)
 	}
 	if col.FileDragOver() {
-		col.Border(2, t.Accent)
+		col.DrawOver(func(p *ui.Painter, r ui.Rect) {
+			inner := ui.Rect{X: r.X + 2, Y: r.Y + 2, W: r.W - 4, H: r.H - 4}
+			p.Fill(inner, t.Accent.Alpha(0.06), 8)
+			p.Stroke(inner, t.Accent, 8, 2)
+		})
 	}
 
 	col.Children(func() {
@@ -297,24 +379,30 @@ func (a *App) content(c *ui.Context) {
 	})
 }
 
+// errorBanner says what went wrong, in a band above the content.
 func (a *App) errorBanner(c *ui.Context) {
 	t := c.Theme()
-	ui.Row(c).
-		Padding(8, 14).
-		Gap(10).
+
+	banner := ui.Row(c).
+		FillWidth().
+		Padding(7, 14).
+		Gap(9).
 		AlignItems(ui.Center).
-		Background(t.Danger.Alpha(0.10)).
-		BorderWidth(0, 0, 1, 0).
-		BorderColor(t.Danger.Alpha(0.20)).
-		Children(func() {
-			ui.Icon(c, iconAlert).FontSize(14).TextColor(t.Danger)
-			ui.Text(c, a.err).FontSize(12).Grow(1).TextColor(t.Danger)
-			dismiss := ui.Button(c.Key("dismiss-error"), "").Label("Dismiss")
-			dismiss.Children(func() { ui.Icon(c, iconClose).FontSize(13) })
-			if dismiss.Clicked() {
-				a.err = ""
-			}
-		})
+		Background(ui.Transparent).
+		Border(0, ui.Transparent)
+	banner.Draw(func(p *ui.Painter, r ui.Rect) {
+		p.Fill(r, t.Danger.Alpha(0.09), 0)
+		p.Fill(ui.Rect{X: r.X, Y: r.Y + r.H - 1, W: r.W, H: 1}, t.Danger.Alpha(0.28), 0)
+	})
+	banner.Children(func() {
+		ui.Icon(c, iconAlert).FontSize(14).TextColor(t.Danger).Shrink(0)
+		ui.Text(c, a.err).FontSize(typeBody).Grow(1).TextColor(t.Text)
+		dismiss := ctlIconButtonBare(c, "Dismiss")
+		dismiss.Children(func() { ui.Icon(c, iconClose).FontSize(12).TextColor(t.Text) })
+		if dismiss.Clicked() {
+			a.err = ""
+		}
+	})
 }
 
 func (a *App) location() string {
@@ -333,30 +421,39 @@ func (a *App) location() string {
 
 func (a *App) welcome(c *ui.Context) {
 	t := c.Theme()
-	ui.Column(c).Fill().Center().Gap(16).Padding(32).Children(func() {
-		// App mascot icon hero container
-		ui.Box(c).Size(80, 80).Radius(20).Background(t.SurfaceHover).Border(1, t.Border).Center().Children(func() {
-			ui.Icon(c, iconCloud).FontSize(36).TextColor(t.Accent)
+	ch := chromeOf(t)
+
+	ui.Column(c).Fill().Center().Gap(16).Padding(40).Children(func() {
+		mark := ui.Box(c).Size(76, 76).Radius(18).Center().Shrink(0).
+			Background(ui.Transparent).Border(0, ui.Transparent)
+		mark.Draw(func(p *ui.Painter, r ui.Rect) {
+			paintSurface(p, r, 18, t.Accent, ui.Transparent)
+		})
+		mark.Children(func() {
+			ui.Icon(c, iconCloud).FontSize(36).TextColor(ch.accentOnFill)
 		})
 
 		ui.Column(c).Gap(6).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, "Connect your storage").FontSize(22).Bold().TextColor(t.Text)
-			ui.Text(c, "Fast, native client for Cloudflare R2, Amazon S3, MinIO, and S3 storage.").
-				FontSize(13).
+			ui.Text(c, "Connect Your Storage").
+				FontSize(typeTitle).
+				FontWeight(weightSemi).
+				TextColor(t.Text)
+			ui.Text(c, "A native client for Cloudflare R2, Amazon S3, MinIO, and any other S3-compatible endpoint.").
+				FontSize(typeBody).
 				TextColor(t.TextMuted).
 				TextAlign(ui.Center).
-				MaxWidth(440)
+				MaxWidth(380)
 		})
 
-		ui.Row(c).Gap(10).Children(func() {
-			connectBtn := ui.PrimaryButton(c, "Connect storage")
-			if connectBtn.Clicked() {
+		ui.Row(c).Gap(8).Children(func() {
+			connect := ctlPrimary(c, "Connect Storage")
+			if connect.Clicked() {
 				a.openConnection(nil)
 			}
 
 			if len(a.connections) > 0 {
-				label := plural(len(a.connections), "Saved connection", "Saved connections")
-				if ui.Button(c, label+"…").Clicked() {
+				label := plural(len(a.connections), "Saved Connection", "Saved Connections")
+				if ctlButton(c, label+"…").Clicked() {
 					a.chipOpen = true
 				}
 			}
@@ -364,27 +461,47 @@ func (a *App) welcome(c *ui.Context) {
 	})
 }
 
+// emptyState fills a content plane that has nothing to show, and says
+// what to do about it.
 func emptyState(c *ui.Context, icon *ui.SVG, title, message string, actions func()) {
 	t := c.Theme()
-	ui.Column(c).Fill().Center().Gap(12).Padding(32).Children(func() {
-		ui.Box(c).Size(56, 56).Radius(16).Background(t.SurfaceHover).Border(1, t.Border).Center().Children(func() {
+
+	ui.Column(c).Fill().Center().Gap(12).Padding(40).Children(func() {
+		mark := ui.Box(c).Size(52, 52).Radius(13).Center().Shrink(0).
+			Background(ui.Transparent).Border(0, ui.Transparent)
+		mark.Draw(func(p *ui.Painter, r ui.Rect) {
+			paintSurface(p, r, 13, chromeOf(t).inset, ui.Transparent)
+		})
+		mark.Children(func() {
 			ui.Icon(c, icon).FontSize(24).TextColor(t.TextMuted)
 		})
-		ui.Column(c).Gap(4).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, title).FontSize(16).Bold().TextColor(t.Text)
-			ui.Text(c, message).FontSize(12.5).TextColor(t.TextMuted).TextAlign(ui.Center).MaxWidth(380)
+
+		ui.Column(c).Gap(5).AlignItems(ui.Center).Children(func() {
+			ui.Text(c, title).FontSize(typeHeadline).FontWeight(weightSemi).TextColor(t.Text)
+			ui.Text(c, message).
+				FontSize(typeBody).
+				TextColor(t.TextMuted).
+				TextAlign(ui.Center).
+				MaxWidth(340)
 		})
+
 		if actions != nil {
 			ui.Row(c).Gap(8).Children(actions)
 		}
 	})
 }
 
+// skeletons stands in for content that has not arrived yet.
 func skeletons(c *ui.Context) {
 	t := c.Theme()
-	ui.Column(c).Gap(8).Padding(16).Children(func() {
-		for i := range 4 {
-			ui.Box(c).Key(i).Height(44).Radius(8).Background(t.SurfaceHover).Opacity(0.6)
+	ch := chromeOf(t)
+
+	ui.Column(c).FillWidth().Padding(16).Gap(6).Children(func() {
+		for i := range 6 {
+			ui.Box(c).Key(i).Height(30).Radius(btnRadius).Background(ui.Transparent).
+				Draw(func(p *ui.Painter, r ui.Rect) {
+					paintSurface(p, r, btnRadius, ch.inset, ui.Transparent)
+				})
 		}
 	})
 }

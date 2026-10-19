@@ -15,9 +15,9 @@ func (a *App) dialogs(c *ui.Context) {
 	case dialogConnection:
 		a.connectionDialog(c)
 	case dialogNewFolder:
-		a.textDialog(c, "New folder", "Folder name", "e.g. photos", a.makeFolder)
+		a.textDialog(c, "New Folder", "Folder name", "photos", a.makeFolder)
 	case dialogNewBucket:
-		a.textDialog(c, "New bucket", "Bucket name", "e.g. my-media-bucket", a.makeBucket)
+		a.textDialog(c, "New Bucket", "Bucket name", "my-media-bucket", a.makeBucket)
 	case dialogRename:
 		a.renameDialog(c)
 	case dialogMove:
@@ -30,16 +30,53 @@ func (a *App) dialogs(c *ui.Context) {
 	a.confirmDialog(c)
 }
 
+/* -------------------------------------------------------------------------
+   Confirmation
+   ------------------------------------------------------------------------- */
+
 func (a *App) confirmDialog(c *ui.Context) {
 	if !a.confirm.open {
 		return
 	}
+	t := c.Theme()
 	buttonLabel := a.confirm.button
 	if buttonLabel == "" {
 		buttonLabel = "Delete"
 	}
-	switch ui.AlertDialog(c, &a.confirm.open, a.confirm.title, a.confirm.message, "Cancel", buttonLabel) {
-	case 1:
+
+	open := a.confirm.open
+	chosen := -1
+
+	ctlDialog(c, &open, 360, func() {
+		ui.Column(c).FillWidth().Gap(16).Children(func() {
+			ui.Row(c).FillWidth().Gap(12).AlignItems(ui.Start).Children(func() {
+				ui.Icon(c, iconAlert).FontSize(20).TextColor(t.Danger).Shrink(0).Margin(0, 2)
+				ui.Column(c).Grow(1).Gap(4).Children(func() {
+					ui.Text(c, a.confirm.title).
+						FontSize(typeHeadline).
+						FontWeight(weightSemi).
+						TextColor(t.Text)
+					ui.Text(c, a.confirm.message).
+						FontSize(typeBody).
+						TextColor(t.TextMuted)
+				})
+			})
+			ui.Row(c).FillWidth().Gap(8).Justify(ui.End).Children(func() {
+				cancel := ctlButton(c, "Cancel")
+				if cancel.Clicked() {
+					a.confirm.open = false
+				}
+				remove := ctlDanger(c, buttonLabel)
+				if remove.Clicked() {
+					chosen = 1
+				}
+			})
+		})
+	})
+
+	a.confirm.open = open
+	if chosen == 1 {
+		a.confirm.open = false
 		action := a.confirm.action
 		a.confirm.action = nil
 		if action != nil {
@@ -76,16 +113,28 @@ func (a *App) openMove() {
 func (a *App) textDialog(c *ui.Context, title, label, placeholder string, accept func(string)) {
 	t := c.Theme()
 	open := true
-	ui.Modal(c, &open, func() {
-		ui.Column(c).Width(380).Gap(14).Children(func() {
-			ui.Text(c, title).FontSize(16).Bold().TextColor(t.Text)
-			field := ui.TextInput(c.Key("name"), &a.input).Placeholder(placeholder).Label(label).AutoFocus()
-			ui.Row(c).Gap(8).Justify(ui.End).Children(func() {
-				if ui.Button(c, "Cancel").Clicked() {
+	submitted := false
+
+	ctlDialog(c, &open, 380, func() {
+		ui.Column(c).FillWidth().Gap(16).Children(func() {
+			ui.Text(c, title).
+				FontSize(typeHeadline).
+				FontWeight(weightSemi).
+				TextColor(t.Text)
+
+			ui.Field(c, label, func() {
+				field := ui.TextInput(c.Key("name"), &a.input).Placeholder(placeholder).AutoFocus()
+				submitted = field.Submitted()
+				ctlField(c, field).FillWidth()
+			})
+
+			ui.Row(c).FillWidth().Gap(8).Justify(ui.End).Children(func() {
+				cancel := ctlButton(c, "Cancel")
+				if cancel.Clicked() {
 					a.dlg = dialogNone
 				}
-				submit := ui.PrimaryButton(c, title)
-				if field.Submitted() || submit.Clicked() {
+				done := ctlPrimary(c, "Create")
+				if submitted || done.Clicked() {
 					if strings.TrimSpace(a.input) != "" {
 						accept(a.input)
 					}
@@ -93,6 +142,7 @@ func (a *App) textDialog(c *ui.Context, title, label, placeholder string, accept
 			})
 		})
 	})
+
 	if !open && a.dlg != dialogNone {
 		a.dlg = dialogNone
 	}
@@ -100,7 +150,7 @@ func (a *App) textDialog(c *ui.Context, title, label, placeholder string, accept
 
 func (a *App) renameDialog(c *ui.Context) {
 	key := a.dest
-	a.textDialog(c, "Rename item", "New name", "Enter new name", func(name string) {
+	a.textDialog(c, "Rename", "New name", "Enter new name", func(name string) {
 		a.rename(key, name)
 	})
 }
@@ -108,35 +158,49 @@ func (a *App) renameDialog(c *ui.Context) {
 func (a *App) moveDialog(c *ui.Context) {
 	t := c.Theme()
 	open := true
-	ui.Modal(c, &open, func() {
-		ui.Column(c).Width(440).Gap(14).Children(func() {
-			ui.Text(c, "Move "+plural(a.sel.Len(), "item", "items")).FontSize(16).Bold().TextColor(t.Text)
-			ui.Text(c, "Enter target folder prefix in "+a.bucket+", or leave empty for root. Folders will be created as needed.").
-				FontSize(12).TextColor(t.TextMuted)
-			ui.Field(c, "Destination folder", func() {
-				ui.TextInput(c.Key("dest"), &a.dest).Placeholder("documents/archives/").AutoFocus()
-			}).Description("Target prefix ending with a slash.")
-			if len(a.movableFolders()) > 0 {
-				ui.Text(c, "Quick destinations:").FontSize(11.5).Bold().TextColor(t.TextMuted)
-				ui.Row(c).Gap(6).Wrap().Children(func() {
-					for _, folder := range a.movableFolders() {
+
+	ctlDialog(c, &open, 440, func() {
+		ui.Column(c).FillWidth().Gap(14).Children(func() {
+			ui.Text(c, "Move "+plural(a.sel.Len(), "Item", "Item")).
+				FontSize(typeHeadline).
+				FontWeight(weightSemi).
+				TextColor(t.Text)
+			ui.Text(c, "Enter a folder in "+a.bucket+". Leave it empty for the bucket root; folders are created as needed.").
+				FontSize(typeBody).
+				TextColor(t.TextMuted)
+
+			ui.Field(c, "Destination", func() {
+				field := ui.TextInput(c.Key("dest"), &a.dest).Placeholder("documents/archives/").AutoFocus()
+				ctlField(c, field).FillWidth()
+			})
+
+			if folders := a.movableFolders(); len(folders) > 0 {
+				menuHeading(c, "Folders")
+				ui.Column(c).FillWidth().Gap(1).Children(func() {
+					for _, folder := range folders {
 						prefix := folder
-						if ui.Button(c.Key(prefix), prefix).Tooltip("Move here").Clicked() {
+						pick := ctlButton(c, prefix).Grow(1)
+						pick = pick.Justify(ui.Start)
+						if pick.Clicked() {
 							a.move(prefix)
 						}
 					}
 				})
 			}
-			ui.Row(c).Gap(8).Justify(ui.End).Children(func() {
-				if ui.Button(c, "Cancel").Clicked() {
+
+			ui.Row(c).FillWidth().Gap(8).Justify(ui.End).Children(func() {
+				cancel := ctlButton(c, "Cancel")
+				if cancel.Clicked() {
 					a.dlg = dialogNone
 				}
-				if ui.PrimaryButton(c, "Move").Clicked() {
+				move := ctlPrimary(c, "Move")
+				if move.Clicked() {
 					a.move(a.dest)
 				}
 			})
 		})
 	})
+
 	if !open && a.dlg != dialogNone {
 		a.dlg = dialogNone
 	}
@@ -159,133 +223,182 @@ func (a *App) movableFolders() []string {
 func (a *App) connectionDialog(c *ui.Context) {
 	t := c.Theme()
 	open := true
-	title := "New connection"
+	title := "New Connection"
 	if a.conn.editing {
 		title = "Edit Connection"
 	}
 
-	ui.Modal(c, &open, func() {
-		ui.Scroll(c).Width(520).MaxHeight(500).Children(func() {
-			ui.Column(c).Gap(14).Padding(6, 4).Children(func() {
-				ui.Text(c, title).FontSize(17).Bold().TextColor(t.Text)
+	labels := a.providerLabels()
+	chosen := a.providerLabel()
 
-				// Provider Presets Selector
-				ui.Row(c).Gap(6).Wrap().Children(func() {
-					for _, preset := range a.svc.Providers() {
-						chosen := a.conn.provider == string(preset.ID)
-						label := preset.Label
-						btn := ui.Button(c.Key(string(preset.ID)), label)
-						if chosen {
-							btn.Background(t.Accent).TextColor(t.AccentText)
-						}
-						if btn.Clicked() {
-							a.conn.provider = string(preset.ID)
-							a.conn.endpoint = preset.Endpoint
-							a.conn.region = preset.Region
-							a.conn.pathStyle = preset.PathStyle
-							if a.conn.name == "" {
-								a.conn.name = preset.Label
+	ctlDialog(c, &open, 520, func() {
+		ui.Column(c).FillWidth().Gap(16).Children(func() {
+			ui.Text(c, title).
+				FontSize(typeHeadline).
+				FontWeight(weightSemi).
+				TextColor(t.Text)
+
+			ui.Scroll(c).MaxHeight(430).Children(func() {
+				ui.Column(c).FillWidth().Gap(14).Children(func() {
+					// The service, as a pop-up rather than a shelf of
+					// seven keys: it is one choice out of a list, and
+					// the list is longer than the shelf.
+					ui.Form(c, func() {
+						ui.Field(c, "Service", func() {
+							sel := ctlSelect(c, "provider", &chosen, labels, 220)
+							sel.Label("Service")
+							if sel.Changed() {
+								a.applyProvider(chosen)
 							}
-						}
+						})
+
+						ui.Field(c, "Name", func() {
+							ctlField(c, ui.TextInput(c.Key("name"), &a.conn.name).
+								Placeholder("Cloudflare R2 Production")).FillWidth()
+						})
+						ui.Field(c, "Endpoint URL", func() {
+							ctlField(c, ui.TextInput(c.Key("endpoint"), &a.conn.endpoint).
+								Placeholder("https://<account-id>.r2.cloudflarestorage.com")).FillWidth()
+						})
+						ui.Field(c, "Bucket", func() {
+							ctlField(c, ui.TextInput(c.Key("bucket"), &a.conn.bucket).
+								Placeholder("All buckets the key can reach")).FillWidth()
+						}).Description("Only needed for a key scoped to one bucket.")
+						ui.Field(c, "Region", func() {
+							ctlField(c, ui.TextInput(c.Key("region"), &a.conn.region).
+								Placeholder("auto")).FillWidth()
+						}).Description("Use auto for R2, or us-east-1 for AWS and MinIO.")
+						ui.Field(c, "Access Key ID", func() {
+							ctlField(c, ui.TextInput(c.Key("access"), &a.conn.accessKey).
+								Placeholder("Access key ID")).FillWidth()
+						})
+						ui.Field(c, "Secret Access Key", func() {
+							ctlField(c, ui.TextInput(c.Key("secret"), &a.conn.secretKey).Password().
+								Placeholder(secretPlaceholder(a.conn))).FillWidth()
+						}).Description(secretDescription(a.conn))
+					})
+
+					ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
+						ctlSwitch(c, "pathstyle", &a.conn.pathStyle, "").
+							Tooltip("Required by MinIO and some S3-compatible gateways")
+						ui.Text(c, "Use path-style requests").FontSize(typeBody)
+					})
+
+					if a.conn.err != "" {
+						statusBanner(c, t.Danger.Alpha(0.09), iconAlert, a.conn.err, t.Text, t.Danger)
 					}
-				})
-
-				if note := a.providerNote(); note != "" {
-					ui.Row(c).Gap(8).AlignItems(ui.Start).Padding(8, 10).Radius(6).
-						Background(t.Accent.Alpha(0.10)).Children(func() {
-						ui.Icon(c, iconInfo).FontSize(14).TextColor(t.Accent)
-						ui.Text(c, note).FontSize(11.5).Grow(1).TextColor(t.TextMuted)
-					})
-				}
-
-				// Form Fields
-				ui.Form(c, func() {
-					ui.Field(c, "Name", func() {
-						ui.TextInput(c.Key("name"), &a.conn.name).Placeholder("Cloudflare R2 Production")
-					})
-					ui.Field(c, "Endpoint URL", func() {
-						ui.TextInput(c.Key("endpoint"), &a.conn.endpoint).Placeholder("https://<account-id>.r2.cloudflarestorage.com")
-					})
-					ui.Field(c, "Bucket name (optional)", func() {
-						ui.TextInput(c.Key("bucket"), &a.conn.bucket).Placeholder("my-bucket")
-					}).Description("Required for tokens scoped to a single bucket.")
-					ui.Field(c, "Region", func() {
-						ui.TextInput(c.Key("region"), &a.conn.region).Placeholder("auto")
-					}).Description("Use auto for R2, or us-east-1 for AWS/MinIO.")
-					ui.Field(c, "Access Key ID", func() {
-						ui.TextInput(c.Key("access"), &a.conn.accessKey).Placeholder("Enter access key ID")
-					})
-					ui.Field(c, "Secret Access Key", func() {
-						ui.TextInput(c.Key("secret"), &a.conn.secretKey).Password().Placeholder(secretPlaceholder(a.conn))
-					}).Description(secretDescription(a.conn))
-					ui.Toggle(c.Key("pathstyle"), &a.conn.pathStyle, "Use path-style requests").
-						Tooltip("Required by MinIO and certain S3-compatible gateways")
-				})
-
-				// Feedback banners
-				if a.conn.err != "" {
-					ui.Row(c).Padding(8, 10).Radius(6).Background(t.Danger.Alpha(0.12)).Gap(8).AlignItems(ui.Center).Children(func() {
-						ui.Icon(c, iconAlert).FontSize(14).TextColor(t.Danger)
-						ui.Text(c, a.conn.err).FontSize(12).Grow(1).TextColor(t.Danger)
-					})
-				}
-				if result := a.conn.result; result != nil {
-					bgColor := t.Success.Alpha(0.12)
-					iconColor := t.Success
-					if !result.OK {
-						bgColor = t.Danger.Alpha(0.12)
-						iconColor = t.Danger
-					}
-					ui.Row(c).Padding(8, 10).Radius(6).Background(bgColor).Gap(8).AlignItems(ui.Center).Children(func() {
-						glyph := iconCheck
-						if !result.OK {
-							glyph = iconAlert
-						}
-						ui.Icon(c, glyph).FontSize(14).TextColor(iconColor)
-						ui.Text(c, result.Message).FontSize(12).Grow(1)
+					if result := a.conn.result; result != nil {
 						if result.OK {
-							ui.Text(c, fmt.Sprintf("%d ms", result.Took.Milliseconds())).FontSize(11).TextColor(t.TextMuted)
+							took := fmt.Sprintf("· %d ms", result.Took.Milliseconds())
+							statusBanner(c, t.Success.Alpha(0.09), iconCheck,
+								result.Message+" "+took, t.Text, t.Success)
+						} else {
+							statusBanner(c, t.Danger.Alpha(0.09), iconAlert,
+								result.Message, t.Text, t.Danger)
 						}
-					})
-				}
-
-				// Action buttons
-				ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-					if a.conn.busy {
-						ui.Spinner(c).Label("Testing")
-					}
-					ui.Spacer(c)
-					if a.conn.editing {
-						id := a.conn.id
-						delBtn := ui.Button(c, "").Label("Remove")
-						delBtn.Children(func() { ui.Text(c, "Remove").TextColor(t.Danger) })
-						if delBtn.Clicked() {
-							a.dlg = dialogNone
-							for _, p := range a.connections {
-								if p.ID == id {
-									a.removeConnection(p)
-									break
-								}
-							}
-						}
-					}
-					if ui.Button(c, "Cancel").Clicked() {
-						a.dlg = dialogNone
-					}
-					testBtn := ui.Button(c, "Test connection").Disabled(a.conn.busy)
-					if testBtn.Clicked() {
-						a.testConnection()
-					}
-					saveBtn := ui.PrimaryButton(c, "Save & Connect").Disabled(a.conn.busy)
-					if saveBtn.Clicked() || (!a.conn.busy && c.Shortcut(ui.Cmd, ui.KeyEnter)) {
-						a.saveConnection()
 					}
 				})
 			})
+
+			ui.Row(c).FillWidth().Padding(0, 2).Children(func() {
+				rule(c, 0, chromeOf(t).hairline)
+			})
+
+			ui.Row(c).FillWidth().Gap(8).AlignItems(ui.Center).Children(func() {
+				if a.conn.busy {
+					ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
+						ui.Spinner(c).Label("Working")
+					})
+				}
+				ui.Spacer(c)
+
+				if a.conn.editing {
+					remove := ctlButton(c, "Remove")
+					if remove.Clicked() {
+						id := a.conn.id
+						a.dlg = dialogNone
+						for _, p := range a.connections {
+							if p.ID == id {
+								a.removeConnection(p)
+								break
+							}
+						}
+					}
+				}
+				cancel := ctlButton(c, "Cancel")
+				if cancel.Clicked() {
+					a.dlg = dialogNone
+				}
+				test := ctlButton(c, "Test Connection").Disabled(a.conn.busy)
+				if test.Clicked() {
+					a.testConnection()
+				}
+				save := ctlPrimary(c, "Save & Connect").Disabled(a.conn.busy)
+				if save.Clicked() || (!a.conn.busy && c.Shortcut(ui.Cmd, ui.KeyEnter)) {
+					a.saveConnection()
+				}
+			})
 		})
 	})
+
 	if !open && a.dlg != dialogNone {
 		a.dlg = dialogNone
+	}
+}
+
+// statusBanner is the one-line result of trying something.
+func statusBanner(c *ui.Context, wash ui.Color, glyph *ui.SVG, message string, textColor, glyphColor ui.Color) {
+	row := ui.Row(c).
+		FillWidth().
+		Padding(7, 10).
+		Radius(btnRadius).
+		Gap(8).
+		AlignItems(ui.Start).
+		Background(wash).
+		Border(0, ui.Transparent)
+	row.Children(func() {
+		ui.Icon(c, glyph).FontSize(14).TextColor(glyphColor).Shrink(0).Margin(0, 1)
+		ui.Text(c, message).FontSize(typeCaption).Grow(1).TextColor(textColor)
+	})
+}
+
+// providerLabels lists the services a new connection can be to.
+func (a *App) providerLabels() []string {
+	providers := a.svc.Providers()
+	out := make([]string, 0, len(providers))
+	for _, p := range providers {
+		out = append(out, p.Label)
+	}
+	return out
+}
+
+// providerLabel is the service the form is filled in for.
+func (a *App) providerLabel() string {
+	for _, p := range a.svc.Providers() {
+		if string(p.ID) == a.conn.provider {
+			return p.Label
+		}
+	}
+	if len(a.svc.Providers()) > 0 {
+		return a.svc.Providers()[0].Label
+	}
+	return ""
+}
+
+// applyProvider fills the form from a service's own defaults.
+func (a *App) applyProvider(label string) {
+	for _, preset := range a.svc.Providers() {
+		if preset.Label != label {
+			continue
+		}
+		a.conn.provider = string(preset.ID)
+		a.conn.endpoint = preset.Endpoint
+		a.conn.region = preset.Region
+		a.conn.pathStyle = preset.PathStyle
+		if a.conn.name == "" {
+			a.conn.name = preset.Label
+		}
+		return
 	}
 }
 
@@ -300,16 +413,16 @@ func (a *App) providerNote() string {
 
 func secretPlaceholder(form connForm) string {
 	if form.editing {
-		return "Leave empty to retain saved secret key"
+		return "Leave empty to keep the saved key"
 	}
-	return "Enter secret access key"
+	return "Secret access key"
 }
 
 func secretDescription(form connForm) string {
 	if form.editing {
-		return "New key will replace the existing one in system Keychain."
+		return "A new key replaces the saved one in the Keychain."
 	}
-	return "Saved in system Keychain with hardware encryption."
+	return "Stored in the System Keychain, encrypted by hardware."
 }
 
 /* -------------------------------------------------------------------------
@@ -340,55 +453,72 @@ func (a *App) copyLink(key string) {
 func (a *App) shareDialog(c *ui.Context) {
 	t := c.Theme()
 	open := true
-	ui.Modal(c, &open, func() {
-		ui.Column(c).Width(520).Gap(14).Children(func() {
-			ui.Text(c, "Share “"+baseName(a.share.key)+"”").FontSize(17).Bold().TextColor(t.Text)
-			ui.Text(c, "Presigned URLs grant temporary read access directly from the S3 endpoint without requiring account sign-in.").
-				FontSize(12).TextColor(t.TextMuted)
 
-			ui.Row(c).Gap(10).AlignItems(ui.Center).Children(func() {
-				ui.Text(c, "Link expires in:").FontSize(12).TextColor(t.TextMuted)
+	ctlDialog(c, &open, 520, func() {
+		ui.Column(c).FillWidth().Gap(14).Children(func() {
+			ui.Text(c, "Share “"+baseName(a.share.key)+"”").
+				FontSize(typeHeadline).
+				FontWeight(weightSemi).
+				TextColor(t.Text)
+			ui.Text(c, "A presigned link gives temporary read access straight from the S3 endpoint, with no sign-in.").
+				FontSize(typeBody).
+				TextColor(t.TextMuted)
+
+			ui.Row(c).FillWidth().Gap(10).AlignItems(ui.Center).Children(func() {
+				ui.Text(c, "Expires In").
+					FontSize(typeBody).
+					TextColor(t.TextMuted).
+					Grow(1)
+
 				hours := []string{"1 hour", "6 hours", "12 hours", "1 day", "3 days", "7 days"}
 				values := []int{1, 6, 12, 24, 72, 168}
-				chosen := ttlLabel(a.share.hours)
-				if ui.Select(c.Key("ttl"), &chosen, hours).Label("Expiration").Width(130).Changed() {
+				current := ttlLabel(a.share.hours)
+				sel := ctlSelect(c, "ttl", &current, hours, 124)
+				sel.Label("Expiration")
+				if sel.Changed() {
 					for i, label := range hours {
-						if label == chosen {
+						if label == current {
 							a.shareLink(a.share.key, values[i])
 							break
 						}
 					}
 				}
-				ui.Spacer(c)
+
 				if a.share.busy {
 					ui.Spinner(c).Label("Generating link")
 				}
 			})
 
 			if a.share.err != "" {
-				ui.Text(c, a.share.err).FontSize(12).TextColor(t.Danger)
+				statusBanner(c, t.Danger.Alpha(0.09), iconAlert, a.share.err, t.Text, t.Danger)
 			}
 
 			if a.share.url != "" {
-				ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-					ui.TextInput(c.Key("url"), &a.share.url).ReadOnly(true).Grow(1).Label("Link")
-					if ui.Button(c, "Copy").Clicked() {
+				ui.Row(c).FillWidth().Gap(8).AlignItems(ui.Center).Children(func() {
+					link := ui.TextInput(c.Key("url"), &a.share.url).ReadOnly(true).Label("Link")
+					ctlField(c, link).Grow(1)
+
+					copy := ctlButton(c, "Copy")
+					if copy.Clicked() {
 						a.services.WriteClipboard(a.share.url)
 						a.notice = "Share link copied"
 					}
-					if ui.Button(c, "Open in browser").Clicked() {
+					open := ctlButton(c, "Open")
+					if open.Clicked() {
 						a.services.OpenURL(a.share.url)
 					}
 				})
 			}
 
-			ui.Row(c).Gap(8).Justify(ui.End).Children(func() {
-				if ui.PrimaryButton(c, "Done").Clicked() {
+			ui.Row(c).FillWidth().Gap(8).Justify(ui.End).Children(func() {
+				done := ctlPrimary(c, "Done")
+				if done.Clicked() {
 					a.dlg = dialogNone
 				}
 			})
 		})
 	})
+
 	if !open && a.dlg != dialogNone {
 		a.dlg = dialogNone
 	}
@@ -419,112 +549,137 @@ func ttlLabel(hours int) string {
 func (a *App) detailDialog(c *ui.Context) {
 	t := c.Theme()
 	open := true
-	ui.Modal(c, &open, func() {
-		ui.Column(c).Width(600).MaxHeight(560).Gap(12).Children(func() {
-			// Title row
-			ui.Row(c).Gap(10).AlignItems(ui.Center).Children(func() {
+
+	ctlDialog(c, &open, 580, func() {
+		ui.Column(c).MaxHeight(560).FillWidth().Gap(14).Children(func() {
+			ui.Row(c).FillWidth().Gap(10).AlignItems(ui.Center).Children(func() {
 				ui.Icon(c, entryIcon(store.Entry{Key: a.detail.key, Name: baseName(a.detail.key)})).
-					FontSize(20).TextColor(t.Accent)
-				ui.Text(c, baseName(a.detail.key)).FontSize(17).Bold().Grow(1).SingleLine().Ellipsis("…")
+					FontSize(19).
+					TextColor(kindTint(t, kindOf(a.detail.key, false)))
+				ui.Text(c, baseName(a.detail.key)).
+					FontSize(typeHeadline).
+					FontWeight(weightSemi).
+					Grow(1).
+					SingleLine().
+					Ellipsis("…")
 				if a.detail.busy {
 					ui.Spinner(c).Label("Loading")
 				}
 			})
 
 			if a.detail.err != "" {
-				ui.Text(c, a.detail.err).FontSize(12).TextColor(t.Danger)
+				statusBanner(c, t.Danger.Alpha(0.09), iconAlert, a.detail.err, t.Text, t.Danger)
 			}
 
 			a.preview(c)
 
-			// Metadata List
-			ui.Column(c).
-				Padding(10, 12).
-				Radius(8).
-				Background(t.SurfaceHover).
-				Gap(6).
-				Children(func() {
-					a.detailRow(c, "Kind", kindLabel(kindOf(a.detail.key, false), a.detail.key))
-					a.detailRow(c, "Size", formatBytes(a.detail.info.Size))
-					a.detailRow(c, "Modified", formatDate(a.detail.info.LastModified))
-					a.detailRow(c, "Key path", a.detail.key)
-					if a.detail.info.StorageClass != "" {
-						a.detailRow(c, "Storage class", a.detail.info.StorageClass)
-					}
-					if a.detail.info.ContentType != "" {
-						a.detailRow(c, "Content type", a.detail.info.ContentType)
-					}
-					if a.detail.info.ETag != "" {
-						a.detailRow(c, "ETag", strings.Trim(a.detail.info.ETag, `"`))
-					}
-				})
+			ui.Column(c).FillWidth().Gap(5).Children(func() {
+				a.detailRow(c, "Kind", kindLabel(kindOf(a.detail.key, false), a.detail.key))
+				a.detailRow(c, "Size", formatBytes(a.detail.info.Size))
+				a.detailRow(c, "Modified", formatDate(a.detail.info.LastModified))
+				a.detailRow(c, "Storage Class", a.detail.info.StorageClass)
+				a.detailRow(c, "Content Type", a.detail.info.ContentType)
+				a.detailRow(c, "ETag", strings.Trim(a.detail.info.ETag, `"`))
+				a.detailRow(c, "Key", a.detail.key)
+			})
 
-			// Footer Actions
-			ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
+			ui.Row(c).FillWidth().Padding(0, 2).Children(func() {
+				rule(c, 0, chromeOf(t).hairline)
+			})
+
+			ui.Row(c).FillWidth().Gap(8).AlignItems(ui.Center).Children(func() {
 				ui.Spacer(c)
-				if ui.Button(c, "Copy key").Clicked() {
+				copy := ctlButton(c, "Copy Key")
+				if copy.Clicked() {
 					a.copyText(a.detail.key, "Object key copied")
 				}
-				if ui.Button(c, "Open in browser").Clicked() {
+				browse := ctlButton(c, "Open in Browser")
+				if browse.Clicked() {
 					a.openInBrowser(a.detail.key)
 				}
-				if ui.Button(c, "Save as…").Clicked() {
+				saveAs := ctlButton(c, "Save As…")
+				if saveAs.Clicked() {
 					a.saveAs(a.detail.key)
 				}
-				if ui.PrimaryButton(c, "Done").Clicked() {
+				done := ctlPrimary(c, "Done")
+				if done.Clicked() {
 					a.dlg = dialogNone
 				}
 			})
 		})
 	})
+
 	if !open && a.dlg != dialogNone {
 		a.dlg = dialogNone
 	}
 }
 
+// detailRow is one fact about the object, its name set to a fixed width
+// so the values line up under each other.
 func (a *App) detailRow(c *ui.Context, label, value string) {
 	if value == "" || value == "—" {
 		return
 	}
 	t := c.Theme()
-	ui.Row(c).Gap(12).Children(func() {
-		ui.Text(c, label).FontSize(12).TextColor(t.TextMuted).Width(100)
-		ui.Text(c, value).FontSize(12).Grow(1).SingleLine().Ellipsis("…")
+	ui.Row(c).FillWidth().Gap(14).Children(func() {
+		ui.Text(c, label).
+			Width(110).
+			FontSize(typeCaption).
+			TextColor(t.TextMuted).
+			SingleLine()
+		ui.Text(c, value).FontSize(typeBody).Grow(1).SingleLine().Ellipsis("…")
 	})
 }
 
+// preview shows what the app can draw of the object, and says so
+// plainly when it cannot draw anything.
 func (a *App) preview(c *ui.Context) {
 	t := c.Theme()
+	ch := chromeOf(t)
+
+	screen := func(height float32) ui.Element {
+		box := ui.Box(c).FillWidth().Height(height).Radius(btnRadius).Clip().Center().
+			Background(ui.Transparent).Border(0, ui.Transparent)
+		box.Draw(func(p *ui.Painter, r ui.Rect) {
+			paintSurface(p, r, btnRadius, ch.inset, ui.Transparent)
+		})
+		return box
+	}
+
 	switch {
 	case a.detail.img != nil:
-		ui.Box(c).FillWidth().MaxHeight(260).Radius(8).Clip().Center().Children(func() {
+		screen(240).Children(func() {
 			ui.Image(c, a.detail.img).Fit(ui.Contain).Grow(1)
 		})
 	case a.detail.text != nil && a.detail.text.Binary:
-		ui.Box(c).FillWidth().Padding(14).Radius(8).Background(t.SurfaceHover).Center().Children(func() {
-			ui.Text(c, "Binary file content cannot be previewed directly.").FontSize(12).TextColor(t.TextMuted)
+		screen(64).Children(func() {
+			ui.Text(c, "This file holds data the app cannot draw.").
+				FontSize(typeBody).
+				TextColor(t.TextMuted)
 		})
 	case a.detail.text != nil:
 		text := a.detail.text.Text
 		if a.detail.text.Truncated {
 			text += "\n\n… [preview truncated at 1 MB] …"
 		}
-		ui.Box(c).FillWidth().Height(220).Radius(8).Background(t.SurfaceHover).Children(func() {
+		screen(210).Children(func() {
 			ui.ScrollBoth(c).Padding(10).Children(func() {
-				ui.Text(c, text).FontSize(11.5).Font("monospace")
+				ui.Text(c, text).FontSize(typeCaption).Font("monospace")
 			})
 		})
 	case !a.detail.busy && a.detail.err == "":
-		ui.Box(c).FillWidth().Padding(14).Radius(8).Background(t.SurfaceHover).Center().Children(func() {
-			ui.Text(c, "Preview unavailable for this format. Use Open in browser or Save as.").
-				FontSize(12).TextColor(t.TextMuted)
+		screen(64).Children(func() {
+			ui.Text(c, "No preview for this format. Open it in the browser, or save it.").
+				FontSize(typeBody).
+				TextColor(t.TextMuted)
 		})
 	}
 }
 
 func baseName(key string) string {
-	if i := strings.LastIndex(strings.TrimSuffix(key, "/"), "/"); i >= 0 {
-		return strings.TrimSuffix(key, "/")[i+1:]
+	trimmed := strings.TrimSuffix(key, "/")
+	if i := strings.LastIndex(trimmed, "/"); i >= 0 {
+		return trimmed[i+1:]
 	}
-	return strings.TrimSuffix(key, "/")
+	return trimmed
 }

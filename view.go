@@ -9,14 +9,15 @@ import (
 )
 
 // sidebarWidth is how wide the sidebar is, in DIPs.
-const sidebarWidth = 230
+const sidebarWidth = 220
 
-// view builds the whole window: the sidebar, the bar along the top, the
-// part the section shows, and the transfers panel under it.
+// view builds the whole window: the sidebar and the bar along the top,
+// both on the window's material, and the content plane under them.
 func (a *App) view(c *ui.Context) {
 	a.services = c.Services()
 	t := a.theme(c.Theme().Dark)
 	c.SetTheme(t)
+	ch := chromeOf(t)
 
 	if a.notice != "" {
 		c.Toast(a.notice)
@@ -27,11 +28,18 @@ func (a *App) view(c *ui.Context) {
 	c.OnShortcut(ui.Cmd, ui.KeyO, a.upload)
 	c.OnShortcut(ui.Cmd, ui.KeyT, func() { a.transfersOpen = !a.transfersOpen })
 
-	bar := c.TitleBar()
-	ui.Row(c).Fill().Gap(8).Padding(8).Children(func() {
-		a.sidebar(c, bar)
-		ui.Column(c).Grow(1).FillHeight().Gap(8).Children(func() {
-			a.topBar(c, bar)
+	ui.Row(c).Fill().Children(func() {
+		a.sidebar(c)
+
+		// The content plane: the bar along the top, the section it
+		// shows, and the transfers under it. A single hairline down the
+		// side is all that separates the two columns.
+		plane := ui.Column(c).Grow(1).FillHeight().Background(ch.canvas)
+		plane.Draw(func(p *ui.Painter, r ui.Rect) {
+			p.Fill(ui.Rect{X: r.X, Y: r.Y, W: 1, H: r.H}, ch.hairline, 0)
+		})
+		plane.Children(func() {
+			a.topBar(c)
 			a.content(c)
 			if a.transfersOpen {
 				a.transfersPanel(c)
@@ -44,6 +52,14 @@ func (a *App) view(c *ui.Context) {
 
 // headerHeight is how tall the band along the top of the window is.
 func headerHeight(bar ui.TitleBar) float32 { return max(bar.Height, 52) }
+
+// compactWindow reports whether the window is too narrow for the sidebar
+// to show its name and the search field at full size, as at its least
+// width.
+func compactWindow(c *ui.Context) bool {
+	w, _ := c.Size()
+	return w < 980
+}
 
 func (a *App) theme(dark bool) *ui.Theme {
 	if dark {
@@ -58,6 +74,11 @@ func (a *App) theme(dark bool) *ui.Theme {
 	return a.lightTheme
 }
 
+// trafficInset leaves room for the window's own controls.
+func trafficInset(bar ui.TitleBar, fallback float32) float32 {
+	return max(bar.Left, fallback)
+}
+
 /* -------------------------------------------------------------------------
    Sidebar
    ------------------------------------------------------------------------- */
@@ -69,68 +90,116 @@ const (
 	navSettings  = "section:settings"
 )
 
-// sidebar draws the navigation, folders, and connection status.
-func (a *App) sidebar(c *ui.Context, bar ui.TitleBar) {
+// sidebar draws the navigation and the connection it is looking through.
+// It sits on the window's material, full height, with nothing under it
+// but a hairline.
+func (a *App) sidebar(c *ui.Context) {
 	t := c.Theme()
 	a.syncSidebarChoice()
 
-	ui.Column(c).
+	bar := c.TitleBar()
+	pane := ui.Column(c).
 		Width(sidebarWidth).
 		FillHeight().
-		Background(t.Surface).
-		Border(1, t.Border).
-		Radius(t.Radius).
-		Clip().
-		Padding(0, 0, 10, 0).
-		Children(func() {
-			// Title bar drag region with subtle brand mark
-			ui.Row(c).
-				Height(headerHeight(bar)).
-				Padding(0, 14, 0, max(bar.Left, 18)).
-				AlignItems(ui.Center).
-				DragWindow().
-				Children(func() {
-					ui.Text(c, "BUCKETEER").
-						FontSize(11).
-						Bold().
-						LetterSpacing(1.2).
-						TextColor(t.TextMuted)
-				})
+		Padding(0, 0, 8, 0).
+		Background(ui.Transparent)
+	pane = paintMaterial(c, pane)
+	if compactWindow(c) {
+		pane.Width(190)
+	}
 
-			// Primary navigation items
-			sidebar := ui.Sidebar(c, &a.sidebarID, func() {
-				ui.SidebarItem(c, navDashboard, iconDashboard, "Dashboard")
-				ui.SidebarItem(c, navFiles, iconFiles, "All files")
-				ui.SidebarItem(c, navTransfers, iconTransfer, "Transfers").Children(func() {
-					if n := a.activeTransfers(); n > 0 {
-						ui.Badge(c, formatCount(n))
+	pane.Children(func() {
+		// The window's drag region, with the app's mark on it.
+		ui.Row(c).
+			Height(headerHeight(bar)).
+			Padding(0, 10, 0, trafficInset(bar, 14)).
+			AlignItems(ui.Center).
+			DragWindow().
+			Children(func() {
+				a.brandMark(c)
+				ui.Text(c, appName).
+					FontSize(typeBody).
+					FontWeight(weightSemi).
+					TextColor(t.TextMuted)
+			})
+
+		ui.Column(c).Padding(6, 8, 0, 8).Gap(1).FocusGroup(ui.Vertical).Children(func() {
+			navRow(c, navDashboard, "Dashboard", iconDashboard, a.sidebarID == navDashboard, nil, func() {
+				a.setSection(sectionDashboard)
+			})
+			navRow(c, navFiles, "Files", iconFiles, a.sidebarID == navFiles, nil, func() {
+				a.setSection(sectionFiles)
+			})
+			navRow(c, navTransfers, "Transfers", iconTransfer, false, func() {
+				if n := a.activeTransfers(); n > 0 {
+					ctlBadge(c, formatCount(n), t.Accent)
+				}
+			}, func() {
+				a.transfersOpen = !a.transfersOpen
+			})
+			navRow(c, navSettings, "Settings", iconSettings, a.sidebarID == navSettings, nil, func() {
+				a.setSection(sectionSettings)
+			})
+		})
+
+		// The folders of the browsed place, as deep as the sidebar
+		// goes: one level below where it is looking.
+		ui.Column(c).Grow(1).Children(func() {
+			if folders := a.sidebarFolders(); len(folders) > 0 {
+				sidebarLabel(c, a.folderSectionTitle())
+				ui.Column(c).Padding(0, 2, 0, 8).Gap(1).FocusGroup(ui.Vertical).Children(func() {
+					for _, e := range folders {
+						entry := e
+						id := "folder:" + entry.Key
+						navRow(c, id, entry.Name, iconFolder, a.sidebarID == id, nil, func() {
+							a.setSection(sectionFiles)
+							a.openPrefix(entry.Key)
+						})
 					}
 				})
-				ui.SidebarItem(c, navSettings, iconSettings, "Settings")
-
-				if folders := a.sidebarFolders(); len(folders) > 0 {
-					ui.SidebarSection(c, a.folderSectionTitle(), &a.foldersOpen, func() {
-						for _, e := range folders {
-							ui.SidebarItem(c, "folder:"+e.Key, iconFolder, e.Name)
-						}
-					})
-				}
-			}).Grow(1)
-			if sidebar.Changed() {
-				a.sidebarChose()
 			}
-
-			a.connectionChip(c)
 		})
+
+		a.connectionRow(c)
+	})
 }
 
-// syncSidebarChoice points the sidebar's own selection at where the app is looking.
+// sidebarLabel heads a group in the sidebar.
+func sidebarLabel(c *ui.Context, title string) {
+	t := c.Theme()
+	ui.Text(c, strings.ToUpper(title)).
+		FontSize(typeCaption).
+		FontWeight(weightSemi).
+		LetterSpacing(0.4).
+		TextColor(t.TextMuted).
+		Padding(8, 10, 3, 10).
+		SingleLine().
+		Ellipsis("…")
+}
+
+// brandMark is a small square with the app's glyph on it.
+func (a *App) brandMark(c *ui.Context) {
+	t := c.Theme()
+	ch := chromeOf(t)
+
+	mark := ui.Box(c).Size(20, 20).Radius(5).Center().Shrink(0).
+		Background(ui.Transparent).Border(0, ui.Transparent)
+	mark.Draw(func(p *ui.Painter, r ui.Rect) {
+		paintSurface(p, r, 5, t.Accent, ui.Transparent)
+	})
+	mark.Children(func() {
+		ui.Icon(c, iconCloud).FontSize(12).TextColor(ch.accentOnFill)
+	})
+}
+
+// syncSidebarChoice points the sidebar's own selection at where the app
+// is looking.
 func (a *App) syncSidebarChoice() {
 	switch {
-	case a.section == sectionDashboard:
-		a.sidebarID = navDashboard
 	case a.section == sectionSettings:
 		a.sidebarID = navSettings
+	case a.section == sectionDashboard && a.session.Connected:
+		a.sidebarID = navDashboard
 	case a.browsing() && a.prefix != "":
 		a.sidebarID = "folder:" + a.prefix
 	default:
@@ -172,22 +241,23 @@ func (a *App) sidebarChose() {
 	case id == navSettings:
 		a.setSection(sectionSettings)
 	case strings.HasPrefix(id, "folder:"):
-		a.section = sectionFiles
+		a.setSection(sectionFiles)
 		a.openPrefix(strings.TrimPrefix(id, "folder:"))
 	}
 }
 
 /* -------------------------------------------------------------------------
-   Connection chip
+   Connection row
    ------------------------------------------------------------------------- */
 
-const sidebarHorizontalInset float32 = 8
-
-// connectionChip draws the connection status card at the bottom of the sidebar.
-func (a *App) connectionChip(c *ui.Context) {
+// connectionRow draws the connection the app is looking through, at the
+// foot of the sidebar.
+func (a *App) connectionRow(c *ui.Context) {
 	t := c.Theme()
+	ch := chromeOf(t)
 	connected := a.session.Connected
-	label, detail := "Not connected", "Connect storage…"
+
+	label, detail := "Not connected", "Choose a connection…"
 	if p := a.session.Profile; p != nil {
 		label = p.Name
 		detail = a.session.Host
@@ -196,55 +266,64 @@ func (a *App) connectionChip(c *ui.Context) {
 		}
 	}
 
-	chip := ui.Row(c).
-		Margin(0, sidebarHorizontalInset).
-		Padding(8, 10).
-		Gap(10).
+	ui.Row(c).Grow(1).Height(1).Padding(0, 10, 0, 10).AlignItems(ui.End).Children(func() {
+		rule(c, 0, ch.hairline)
+	})
+
+	row := ui.Row(c).
+		Key("connection").
+		Margin(6, 6, 0, 6).
+		Padding(5, 7).
+		Gap(8).
 		AlignItems(ui.Center).
-		Radius(8).
-		Border(1, t.Border).
-		Background(t.Surface).
+		Radius(btnRadius).
 		Focusable().
 		Cursor(ui.CursorPointer).
+		TextColor(t.Text).
 		OnClick(func() { a.chipOpen = !a.chipOpen })
-	if chip.Hovered() || a.chipOpen {
-		chip.Background(t.SurfaceHover)
-	}
 
-	chip.Children(func() {
-		// Status avatar with online indicator
+	hovered := row.Hovered()
+	row = row.Background(ui.Transparent).Border(0, ui.Transparent).
+		Draw(func(p *ui.Painter, r ui.Rect) {
+			if hovered || a.chipOpen {
+				p.Fill(r, ch.hover, btnRadius)
+			}
+		})
+
+	row.Children(func() {
 		if connected && a.session.Profile != nil {
-			ui.Avatar(c, a.session.Profile.Name, nil).FontSize(10.5)
+			monogram(c, a.session.Profile.Name, 26)
 		} else {
-			ui.Box(c).Size(26, 26).Radius(13).Background(t.SurfaceHover).Center().Children(func() {
+			face := ui.Box(c).Size(26, 26).Radius(13).Center().Shrink(0).
+				Background(ui.Transparent).Border(1, t.Border)
+			face.Children(func() {
 				ui.Icon(c, iconCloud).FontSize(14).TextColor(t.TextMuted)
 			})
 		}
 
-		ui.Column(c).Grow(1).Gap(2).Children(func() {
-			ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
-				statusDot := t.TextMuted.Alpha(0.5)
+		ui.Column(c).Grow(1).Gap(1).Children(func() {
+			ui.Row(c).Gap(5).AlignItems(ui.Center).Children(func() {
+				dot := t.TextMuted
 				if connected {
-					statusDot = t.Success
+					dot = t.Success
 				}
-				ui.Box(c).Size(6, 6).Radius(3).Background(statusDot)
-				ui.Text(c, label).FontSize(12).Bold().SingleLine().Ellipsis("…")
+				led(c, dot, 6)
+				ui.Text(c, label).FontSize(typeCaption).FontWeight(weightSemi).SingleLine().Ellipsis("…")
 			})
-			ui.Text(c, detail).FontSize(10.5).TextColor(t.TextMuted).SingleLine().Ellipsis("…")
+			ui.Text(c, detail).FontSize(typeCaption).TextColor(t.TextMuted).SingleLine().Ellipsis("…")
 		})
 
-		ui.Icon(c, iconMore).FontSize(13).TextColor(t.TextMuted)
+		ui.Icon(c, iconMore).FontSize(13).TextColor(t.TextMuted).Shrink(0)
 	})
 
-	ui.Popover(c, chip, &a.chipOpen, func() {
+	ui.Popover(c, row, &a.chipOpen, func() {
 		a.connectionMenu(c)
 	})
 }
 
-// connectionMenu fills the connection chip's popover menu.
+// connectionMenu fills the connection row's popover menu.
 func (a *App) connectionMenu(c *ui.Context) {
-	t := c.Theme()
-	ui.Column(c).Width(260).Gap(2).Padding(4).Children(func() {
+	ui.Column(c).Width(264).Gap(1).Children(func() {
 		if a.session.Connected {
 			if menuItem(c, "Disconnect", "close") {
 				a.chipOpen = false
@@ -253,7 +332,7 @@ func (a *App) connectionMenu(c *ui.Context) {
 			divider(c)
 		}
 		if len(a.connections) > 0 {
-			ui.Text(c, "Connections").FontSize(11).Bold().TextColor(t.TextMuted).Padding(6, 8, 2, 8)
+			menuHeading(c, "Connections")
 			for _, p := range a.connections {
 				profile := p
 				chosen := a.session.Profile != nil && a.session.Profile.ID == profile.ID
@@ -268,13 +347,13 @@ func (a *App) connectionMenu(c *ui.Context) {
 			}
 			divider(c)
 		}
-		if menuItem(c, "Add a connection…", "plus") {
+		if menuItem(c, "Add Connection…", "plus") {
 			a.chipOpen = false
 			a.openConnection(nil)
 		}
-		if menuItem(c, "Manage connections…", "settings") {
+		if menuItem(c, "Manage Connections…", "settings") {
 			a.chipOpen = false
-			a.section = sectionSettings
+			a.setSection(sectionSettings)
 		}
 	})
 }
@@ -289,35 +368,57 @@ func menuItem(c *ui.Context, label, iconName string) bool {
 
 func menuItemChecked(c *ui.Context, label, detail string, checked bool, iconName ...string) bool {
 	t := c.Theme()
-	row := ui.Row(c).Key(label).Padding(6, 8).Gap(8).AlignItems(ui.Center).Radius(6).
-		Focusable().Cursor(ui.CursorPointer).OnClick(func() {})
-	if row.Hovered() {
-		row.Background(t.SurfaceHover)
-	}
+	ch := chromeOf(t)
+
+	row := ui.Row(c).Key(label).Padding(5, 8).Gap(8).AlignItems(ui.Center).Radius(5).
+		Focusable().Cursor(ui.CursorPointer).OnClick(func() {}).
+		TextColor(t.Text)
+
+	hovered := row.Hovered()
+	row = row.Background(ui.Transparent).Border(0, ui.Transparent).
+		Draw(func(p *ui.Painter, r ui.Rect) {
+			if hovered {
+				p.Fill(r, ch.hover, 5)
+			}
+		})
+
 	clicked := row.Clicked()
 	row.Children(func() {
-		ui.Box(c).Size(16, 16).Center().Children(func() {
+		ui.Box(c).Size(14, 14).Shrink(0).Children(func() {
 			if checked {
-				ui.Icon(c, iconCheck).FontSize(13).TextColor(t.Accent)
+				ui.Icon(c, iconCheck).FontSize(12).TextColor(t.Accent)
 			}
 		})
 		if len(iconName) > 0 && iconName[0] != "" {
-			ui.Icon(c, iconFor(iconName[0])).FontSize(14).TextColor(t.TextMuted)
+			ui.Icon(c, iconFor(iconName[0])).FontSize(14).TextColor(t.TextMuted).Shrink(0)
 		}
 		if detail == "" {
-			ui.Text(c, label).FontSize(12.5).Grow(1).SingleLine()
+			ui.Text(c, label).FontSize(typeBody).Grow(1).SingleLine()
 		} else {
 			ui.Column(c).Grow(1).Gap(1).Children(func() {
-				ui.Text(c, label).FontSize(12.5).SingleLine().Ellipsis("…")
-				ui.Text(c, detail).FontSize(11).TextColor(t.TextMuted).SingleLine().Ellipsis("…")
+				ui.Text(c, label).FontSize(typeBody).SingleLine().Ellipsis("…")
+				ui.Text(c, detail).FontSize(typeCaption).TextColor(t.TextMuted).SingleLine().Ellipsis("…")
 			})
 		}
 	})
 	return clicked
 }
 
+// menuHeading labels a group inside a menu.
+func menuHeading(c *ui.Context, title string) {
+	t := c.Theme()
+	ui.Text(c, strings.ToUpper(title)).
+		FontSize(typeCaption).
+		FontWeight(weightSemi).
+		TextColor(t.TextMuted).
+		Padding(6, 8, 2, 8)
+}
+
 func divider(c *ui.Context) {
-	ui.Row(c).PaddingY(4).PaddingX(4).Children(func() { ui.Divider(c) })
+	t := c.Theme()
+	ui.Row(c).Padding(3, 6).Children(func() {
+		rule(c, 0, t.Border)
+	})
 }
 
 func iconFor(name string) *ui.SVG {
