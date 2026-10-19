@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/egoist/mygo"
+
 	"bucketeer/internal/store"
 )
 
@@ -503,4 +505,52 @@ func TestR2ConnectionWithFile(t *testing.T) {
 		t.Fatalf("ListObjects: %v", err)
 	}
 	t.Logf("ListObjects on %s: %d items", cfg.Bucket, len(listing.Items))
+}
+
+func TestSeedR2Connection(t *testing.T) {
+	// Only meaningful when the app ships an r2.json.
+	dir, err := mygo.App.Path(mygo.PathResources)
+	if err != nil {
+		t.Skip("no resources path")
+	}
+	if _, err := os.Stat(filepath.Join(dir, "r2.json")); err != nil {
+		t.Skip("r2.json not shipped")
+	}
+
+	service := newTestService(t)
+	if !service.seedR2Connection() {
+		t.Fatal("seedR2Connection reported nothing was seeded")
+	}
+
+	profile := service.r2Profile()
+	if profile == nil {
+		t.Fatal("r2Profile found nothing after seeding")
+	}
+	if profile.Provider != store.ProviderR2 {
+		t.Errorf("provider = %s, want r2", profile.Provider)
+	}
+	if profile.Bucket == "" {
+		t.Error("seeded profile has no bucket")
+	}
+	if !profile.HasSecret {
+		t.Error("seeded profile has no secret")
+	}
+
+	// Idempotent: seeding again neither errors nor duplicates.
+	if service.seedR2Connection() {
+		t.Fatal("seedR2Connection ran twice")
+	}
+	list, err := service.ListConnections()
+	if err != nil {
+		t.Fatalf("ListConnections: %v", err)
+	}
+	count := 0
+	for _, p := range list {
+		if p.Endpoint == profile.Endpoint && p.AccessKeyID == profile.AccessKeyID {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Fatalf("seeded connection appears %d times, want 1", count)
+	}
 }

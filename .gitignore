@@ -4,5 +4,6 @@ node_modules/
 /.mygo/
 /preview/
 r2.json
+resources/r2.json
 *.local.json
 mygo_windows_*.syso
