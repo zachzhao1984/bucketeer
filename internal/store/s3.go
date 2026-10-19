@@ -72,12 +72,27 @@ type Stat struct {
 	Objects int64        `json:"objects"`
 	Folders int64        `json:"folders"`
 	ByClass []ClassTotal `json:"byClass"`
-	Largest []Entry      `json:"largest"`
+	// ByKind is the same bytes and objects, grouped by what the objects
+	// are: images, video, audio, documents, archives, other.
+	ByKind  []KindTotal `json:"byKind"`
+	Largest []Entry     `json:"largest"`
 	// TopFolders are the largest top-level folders, biggest first.
 	TopFolders []FolderTotal `json:"topFolders"`
+	// Recent counts the objects modified in the last week, and
+	// LastModified is the newest of them.
+	Recent       int64     `json:"recent"`
+	LastModified time.Time `json:"lastModified"`
 	// Partial is true when the scan stopped before the bucket ended, so
 	// the totals are a lower bound.
 	Partial bool `json:"partial"`
+}
+
+// KindTotal is the size of the objects of one kind.
+type KindTotal struct {
+	Kind    string `json:"kind"`
+	Bytes   int64  `json:"bytes"`
+	Count   int64  `json:"count"`
+	Largest int64  `json:"largest"`
 }
 
 // ClassTotal is the size of the objects of one storage class.
@@ -309,6 +324,7 @@ func (s *Session) Stat(ctx context.Context, bucket string, limit int) (Stat, err
 	}
 	out := Stat{Bucket: bucket}
 	classes := map[string]*ClassTotal{}
+	kinds := map[string]*KindTotal{}
 	folders := map[string]*FolderTotal{}
 	var scanned int
 
@@ -341,6 +357,23 @@ func (s *Session) Stat(ctx context.Context, bucket string, limit int) (Stat, err
 		c.Bytes += obj.Size
 		c.Count++
 
+		kind := KindOf(obj.Key)
+		k, ok := kinds[kind]
+		if !ok {
+			k = &KindTotal{Kind: kind}
+			kinds[kind] = k
+		}
+		k.Bytes += obj.Size
+		k.Count++
+		k.Largest = max(k.Largest, obj.Size)
+
+		if obj.LastModified.After(out.LastModified) {
+			out.LastModified = obj.LastModified
+		}
+		if time.Since(obj.LastModified) < 7*24*time.Hour {
+			out.Recent++
+		}
+
 		if top, _, ok := strings.Cut(obj.Key, "/"); ok && top != "" {
 			key := top + "/"
 			f, ok := folders[key]
@@ -366,6 +399,11 @@ func (s *Session) Stat(ctx context.Context, bucket string, limit int) (Stat, err
 		out.ByClass = append(out.ByClass, *c)
 	}
 	sort.Slice(out.ByClass, func(i, j int) bool { return out.ByClass[i].Bytes > out.ByClass[j].Bytes })
+
+	for _, k := range kinds {
+		out.ByKind = append(out.ByKind, *k)
+	}
+	sort.Slice(out.ByKind, func(i, j int) bool { return out.ByKind[i].Bytes > out.ByKind[j].Bytes })
 
 	sort.Slice(out.Largest, func(i, j int) bool { return out.Largest[i].Size > out.Largest[j].Size })
 	if len(out.Largest) > 25 {
@@ -795,3 +833,75 @@ func (c *countingReader) Read(p []byte) (int, error) {
 
 // ProgressInterval is how often transfer progress is reported.
 const ProgressInterval = 200 * time.Millisecond
+
+// KindOf classifies a key by its extension, so the dashboard can group
+// the bytes by what they are. It is the storage layer's own copy of the
+// rule the interface draws with, because a bucket's breakdown is computed
+// where the objects are listed.
+func KindOf(key string) string {
+	base := key
+	if i := strings.LastIndex(key, "/"); i >= 0 {
+		base = key[i+1:]
+	}
+	dot := strings.LastIndex(base, ".")
+	if dot <= 0 {
+		return "file"
+	}
+	switch strings.ToLower(base[dot:]) {
+	case ".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif", ".bmp", ".ico", ".tiff", ".heic", ".svg":
+		return "image"
+	case ".mp4", ".mov", ".webm", ".mkv", ".avi", ".m4v", ".ogv":
+		return "video"
+	case ".mp3", ".wav", ".m4a", ".flac", ".ogg", ".oga", ".aac", ".opus":
+		return "audio"
+	case ".zip", ".gz", ".tar", ".tgz", ".bz2", ".xz", ".7z", ".rar", ".zst":
+		return "archive"
+	case ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".rtf", ".epub",
+		".txt", ".md", ".markdown", ".csv", ".tsv", ".log", ".json", ".yaml", ".yml",
+		".toml", ".ini", ".conf", ".env", ".srt", ".vtt", ".js", ".mjs", ".cjs",
+		".ts", ".tsx", ".jsx", ".go", ".rs", ".py", ".rb", ".java", ".kt", ".c",
+		".h", ".cc", ".cpp", ".hpp", ".cs", ".swift", ".php", ".sh", ".bash",
+		".zsh", ".sql", ".css", ".scss", ".html", ".htm", ".xml", ".vue",
+		".svelte", ".lua", ".dart":
+		return "document"
+	default:
+		return "file"
+	}
+}
+
+// Recent returns the newest objects in a bucket, newest first, up to
+// limit. It walks the bucket, so it is only worth asking for a small
+// number.
+func (s *Session) Recent(ctx context.Context, bucket string, limit int) (Listing, error) {
+	if limit <= 0 {
+		limit = 40
+	}
+	out := Listing{Prefix: ""}
+	seq := s.client.ListObjectsIter(ctx, bucket, minio.ListObjectsOptions{Recursive: true})
+	for obj := range seq {
+		if obj.Err != nil {
+			return Listing{}, describe(obj.Err)
+		}
+		if strings.HasSuffix(obj.Key, "/") {
+			continue
+		}
+		out.Items = append(out.Items, Entry{
+			Key:          obj.Key,
+			Name:         path.Base(obj.Key),
+			Size:         obj.Size,
+			LastModified: obj.LastModified,
+			StorageClass: obj.StorageClass,
+			ETag:         strings.Trim(obj.ETag, `"`),
+			ContentType:  obj.ContentType,
+		})
+		if len(out.Items) >= limit*8 {
+			break // enough to sort; a bucket is not walked in full
+		}
+	}
+	sort.Slice(out.Items, func(i, j int) bool { return out.Items[i].LastModified.After(out.Items[j].LastModified) })
+	if len(out.Items) > limit {
+		out.Items = out.Items[:limit]
+	}
+	out.Total = len(out.Items)
+	return out, nil
+}

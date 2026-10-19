@@ -20,6 +20,7 @@ type Section string
 const (
 	sectionDashboard Section = "dashboard"
 	sectionFiles     Section = "files"
+	sectionRecent    Section = "recent"
 	sectionSettings  Section = "settings"
 )
 
@@ -91,18 +92,33 @@ type App struct {
 	fileList      ui.ListState
 	grid          ui.GridState
 	transfersOpen bool
-	// sidebarID is what the sidebar shows as chosen; transfersChoice is
-	// the transient press on its Transfers item, which toggles a panel
-	// rather than staying chosen.
-	sidebarID       string
-	transfersChoice string
-	foldersOpen     bool
-	chipOpen        bool
-	menuOpen        bool
-	selMenuOpen     bool
-	crumb           int
-	cursor          int
-	tableSort       ui.SortOrder
+	// sidebarID is what the sidebar shows as chosen.
+	sidebarID string
+	chipOpen  bool
+	menuOpen  bool
+	// The menus the toolbar drops: the type filter, the sort field, and
+	// the ways to add things.
+	typeOpen       bool
+	sortOpen       bool
+	uploadMenuOpen bool
+	providerOpen   bool
+	shareOpen      bool
+	ttlOpen        bool
+	settingsPage   settingsPage
+	// rowMenuKey is the row whose Actions menu is open, and rowMenuOpen
+	// whether it is.
+	rowMenuKey  string
+	rowMenuOpen bool
+	crumb       int
+	cursor      int
+	tableSort   ui.SortOrder
+
+	// recent is the objects the app has opened or saved, newest first, as
+	// the reference client's Recent files list shows them.
+	recent []recentEntry
+	// foldersByCount reads the dashboard's folder figures as a number of
+	// objects rather than as bytes.
+	foldersByCount bool
 
 	// Thumbnails are the pictures the grid shows for image objects, by
 	// key. A key maps to nil when the app tried and there is nothing to
@@ -222,8 +238,7 @@ func newApp(svc *Service) *App {
 		thumbs:       map[string]*ui.Bitmap{},
 		thumbLoading: map[string]bool{},
 
-		sortDesc:    false,
-		foldersOpen: true,
+		sortDesc: false,
 	}
 	go func() {
 		for {
@@ -305,12 +320,22 @@ func (a *App) setSection(s Section) {
 	if s == sectionDashboard && !a.session.Connected {
 		s = sectionFiles
 	}
+	if s == sectionRecent && !a.session.Connected {
+		s = sectionFiles
+	}
 	if a.section == s {
 		return
 	}
 	a.section = s
-	if s == sectionDashboard && a.browsing() && a.stat == nil && !a.statLoading {
+	a.sel.Clear()
+	a.search = ""
+	a.searchResults = nil
+	a.cursor = -1
+	switch {
+	case s == sectionDashboard && a.browsing() && a.stat == nil && !a.statLoading:
 		a.loadStat()
+	case s == sectionRecent && a.browsing() && len(a.recent) == 0:
+		a.loadRecent()
 	}
 }
 
@@ -346,6 +371,7 @@ func (a *App) openEntry(e store.Entry) {
 		a.openPrefix(e.Key)
 		return
 	}
+	a.rememberRecent(e)
 	a.showDetail(e.Key)
 }
 
@@ -789,6 +815,9 @@ func (a *App) connect(id string) {
 			a.err = ""
 			a.session = session
 			a.section = sectionFiles
+			a.search = ""
+			a.searchResults = nil
+			a.recent = nil
 			a.resetThumbnails()
 			if session.Profile != nil && session.Profile.Bucket != "" {
 				a.openBucket(session.Profile.Bucket)
@@ -881,3 +910,208 @@ func now() time.Time { return time.Now() }
 
 // appName is the product name, shown in the window title.
 const appName = "Bucketeer"
+
+/* -------------------------------------------------------------------------
+   Recent files
+   ------------------------------------------------------------------------- */
+
+// recentEntry is one object the app has touched, with where it lives so
+// the list can open it again after another folder is browsed.
+type recentEntry struct {
+	Bucket string
+	Key    string
+	Name   string
+	Size   int64
+	At     time.Time
+}
+
+// recentLimit is how many objects the recent list keeps.
+const recentLimit = 40
+
+// rememberRecent puts an object at the head of the recent list, dropping
+// an older mention of it.
+func (a *App) rememberRecent(e store.Entry) {
+	entry := recentEntry{
+		Bucket: a.bucket,
+		Key:    e.Key,
+		Name:   e.Name,
+		Size:   e.Size,
+		At:     time.Now(),
+	}
+	out := make([]recentEntry, 0, recentLimit)
+	out = append(out, entry)
+	for _, r := range a.recent {
+		if r.Bucket == entry.Bucket && r.Key == entry.Key {
+			continue
+		}
+		if len(out) == recentLimit {
+			break
+		}
+		out = append(out, r)
+	}
+	a.recent = out
+}
+
+// hasRecent reports whether there is a history to show.
+func (a *App) hasRecent() bool { return len(a.recent) > 0 }
+
+// clearRecent forgets the history.
+func (a *App) clearRecent() {
+	a.recent = nil
+	a.notice = "Recent history cleared"
+}
+
+// loadRecent asks the bucket for its most recently modified objects, so
+// the Recent files list has something to show on a fresh launch. The
+// app's own history, when there is one, leads.
+func (a *App) loadRecent() {
+	if !a.svc.Connected() || !a.browsing() {
+		return
+	}
+	bucket := a.bucket
+	a.loading = true
+	go func() {
+		listing, err := a.svc.RecentObjects(a.ctx, bucket, recentLimit)
+		a.update(func() {
+			a.loading = false
+			if err != nil {
+				a.err = err.Error()
+				return
+			}
+			seen := map[string]bool{}
+			for _, r := range a.recent {
+				seen[r.Key] = true
+			}
+			out := append([]recentEntry(nil), a.recent...)
+			for _, e := range listing.Items {
+				if seen[e.Key] {
+					continue
+				}
+				out = append(out, recentEntry{
+					Bucket: bucket, Key: e.Key, Name: e.Name, Size: e.Size, At: e.LastModified,
+				})
+				if len(out) == recentLimit {
+					break
+				}
+			}
+			a.recent = out
+		})
+	}()
+}
+
+// visibleRecent returns the recent list, filtered by the same type filter
+// and the same query the file area uses.
+func (a *App) visibleRecent() []recentEntry {
+	out := make([]recentEntry, 0, len(a.recent))
+	query := strings.ToLower(strings.TrimSpace(a.search))
+	for _, r := range a.recent {
+		if query != "" && !strings.Contains(strings.ToLower(r.Name), query) {
+			continue
+		}
+		if a.filter != "all" {
+			if a.filter == "folders" {
+				continue
+			}
+			if kindOf(r.Key, false) != fileKind(a.filter) {
+				continue
+			}
+		}
+		out = append(out, r)
+	}
+	return out
+}
+
+// recentFiles draws the Recent files section: the objects the app has
+// touched, newest first, with the ones the bucket reports at the end.
+func (a *App) recentFiles(c *ui.Context) {
+	if !a.browsing() {
+		emptyState(c, iconRecent, "Open a bucket first",
+			"Recent files lists what you have looked at, so it needs a bucket to look in.", func() {
+				if ctlPrimary(c, "Browse buckets").Clicked() {
+					a.setSection(sectionFiles)
+					a.loadBuckets()
+				}
+			})
+		return
+	}
+	if len(a.recent) == 0 {
+		if a.loading {
+			skeletons(c)
+			return
+		}
+		emptyState(c, iconRecent, "No recent files",
+			"Files you open or save show up here, newest first.", nil)
+		return
+	}
+
+	items := a.visibleRecent()
+	if len(items) == 0 {
+		emptyState(c, iconSearch, "Nothing matches",
+			"No recent file matches the filter.", func() {
+				if ctlPrimary(c, "Clear filter").Clicked() {
+					a.search = ""
+					a.filter = "all"
+				}
+			})
+		return
+	}
+
+	ui.Scroll(c).Grow(1).Children(func() {
+		ui.Column(c).FillWidth().Padding(18).Gap(2).Children(func() {
+			for _, r := range items {
+				entry := r
+				a.recentRow(c, entry)
+			}
+		})
+	})
+}
+
+func (a *App) recentRow(c *ui.Context, r recentEntry) {
+	t := c.Theme()
+	ch := chromeOf(t)
+	kind := kindOf(r.Key, false)
+
+	row := ui.Row(c).
+		Key(r.Bucket+"/"+r.Key).
+		FillWidth().
+		Height(46).
+		Padding(0, 10).
+		Gap(10).
+		AlignItems(ui.Center).
+		Radius(9).
+		Cursor(ui.CursorPointer).
+		Focusable().
+		TextColor(t.Text).
+		Background(ui.Transparent).
+		Border(0, ui.Transparent).
+		OnClick(func() { a.openRecent(r) })
+	row.Label(r.Name)
+
+	hovered := row.Hovered()
+	row.Draw(func(p *ui.Painter, r ui.Rect) {
+		if hovered {
+			p.Fill(r, ch.hover, 9)
+		}
+	})
+
+	row.Children(func() {
+		a.cellMark(c, store.Entry{Key: r.Key, Name: r.Name, Size: r.Size}, kind, 26)
+
+		ui.Column(c).Grow(1).Gap(1).Children(func() {
+			ui.Text(c, r.Name).FontSize(typeBody).SingleLine().Ellipsis("…")
+			ui.Text(c, r.Key).FontSize(typeCaption).TextColor(t.TextMuted).SingleLine().Ellipsis("…")
+		})
+
+		ui.Text(c, formatBytes(r.Size)).FontSize(typeBody).TextColor(t.TextMuted).Width(84).TextAlign(ui.End)
+		ui.Text(c, formatRelative(r.At, now())).FontSize(typeCaption).TextColor(t.TextMuted).Width(96).TextAlign(ui.End)
+	})
+}
+
+// openRecent opens an object from the recent list, whichever folder the
+// app is browsing.
+func (a *App) openRecent(r recentEntry) {
+	if r.Bucket != a.bucket {
+		a.openBucket(r.Bucket)
+	}
+	a.showDetail(r.Key)
+}

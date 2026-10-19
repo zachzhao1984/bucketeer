@@ -47,6 +47,8 @@ type Settings struct {
 	ConfirmDelete bool `json:"confirmDelete"`
 	// PresignTTLHours is how long a share link stays valid.
 	PresignTTLHours int `json:"presignTtlHours"`
+	// DarkMode asks for the dark appearance whatever the system shows.
+	DarkMode bool `json:"darkMode"`
 }
 
 func defaultSettings() Settings {
@@ -544,6 +546,16 @@ func (s *Service) SearchObjects(ctx context.Context, bucket, prefix, query strin
 	return session.Search(ctx, bucket, prefix, query, limit)
 }
 
+// RecentObjects returns the newest objects in a bucket, newest first, for
+// the Recent files section.
+func (s *Service) RecentObjects(ctx context.Context, bucket string, limit int) (store.Listing, error) {
+	session, err := s.currentSession()
+	if err != nil {
+		return store.Listing{}, err
+	}
+	return session.Recent(ctx, bucket, limit)
+}
+
 // ObjectInfo returns one object's metadata.
 func (s *Service) ObjectInfo(ctx context.Context, bucket, key string) (store.ObjectInfo, error) {
 	session, err := s.currentSession()
@@ -724,6 +736,18 @@ func (s *Service) PickUploadFiles(parent *mygo.Window) ([]string, error) {
 		Message:  "The files are uploaded to the folder you are browsing.",
 		Multiple: true,
 	})
+}
+
+// PickUploadFolder asks for a folder to upload, whose files go under a
+// prefix named after it.
+func (s *Service) PickUploadFolder(parent *mygo.Window) ([]string, error) {
+	paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{
+		Parent:    parent,
+		Title:     "Choose a folder to upload",
+		Directory: true,
+		Multiple:  true,
+	})
+	return paths, err
 }
 
 // PickDownloadDir asks where to save downloads.

@@ -41,6 +41,27 @@ func (a *App) upload() {
 	}()
 }
 
+// uploadFolder asks for a folder and uploads its files under a prefix
+// named after it.
+func (a *App) uploadFolder() {
+	if !a.browsing() || !a.session.Connected {
+		a.notice = "Open a bucket before uploading."
+		return
+	}
+	bucket, prefix := a.bucket, a.prefix
+	go func() {
+		paths, err := a.svc.PickUploadFolder(a.win)
+		if err != nil {
+			a.update(func() { a.fail(err) })
+			return
+		}
+		if len(paths) == 0 {
+			return
+		}
+		a.queueUpload(bucket, prefix, paths)
+	}()
+}
+
 func (a *App) uploadPaths(paths []string) {
 	if !a.browsing() || !a.session.Connected {
 		a.notice = "Open a bucket before uploading."
@@ -510,6 +531,19 @@ func (a *App) removeConnection(profile store.Profile) {
 /* -------------------------------------------------------------------------
    Selection
    ------------------------------------------------------------------------- */
+
+// allChosen reports whether every entry of a listing is chosen.
+func (a *App) allChosen(items []store.Entry) bool {
+	if len(items) == 0 || a.sel.Len() < len(items) {
+		return false
+	}
+	for _, e := range items {
+		if !a.sel.Has(e.Key) {
+			return false
+		}
+	}
+	return true
+}
 
 // selectAll chooses every entry the file area shows.
 func (a *App) selectAll() {

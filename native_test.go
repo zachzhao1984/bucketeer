@@ -21,24 +21,28 @@ func TestNativeNavigationAndConnectionForm(t *testing.T) {
 	a := nativeTestApp(t)
 	tester := ui.NewTester(a.view, 1180, 760)
 	tester.SetTitleBar(ui.TitleBar{Height: 52, Left: 79})
-	if !tester.HasText("Connect Your Storage") {
+	if !tester.HasText("Add a connection") {
 		t.Fatal(tester.Texts())
 	}
 	if err := tester.Click("Settings"); err != nil {
 		t.Fatal(err)
 	}
 	tester.Frame()
-	if !tester.HasText("Browsing") {
+	if !tester.HasText("Preferences") {
 		t.Fatalf("Settings did not open: %v", tester.Texts())
 	}
-	if err := tester.Click("Add Connection"); err != nil {
+	if err := tester.Click("Connections"); err != nil {
 		t.Fatal(err)
 	}
 	tester.Frame()
-	if !tester.HasText("New Connection") {
+	if err := tester.Click("Add connection"); err != nil {
+		t.Fatal(err)
+	}
+	tester.Frame()
+	if !tester.HasText("Add a connection") {
 		t.Fatal("connection form missing")
 	}
-	if err := tester.Click("Name"); err != nil {
+	if err := tester.Click("Connection name"); err != nil {
 		t.Fatal(err)
 	}
 	tester.Type("Test account")
@@ -212,10 +216,13 @@ func TestGenerateShots(t *testing.T) {
 				{Prefix: "videos/", Name: "videos", Bytes: 1024 * 1024 * 110},
 				{Prefix: "backups/", Name: "backups", Bytes: 1024 * 1024 * 30},
 			},
-			ByClass: []store.ClassTotal{
-				{Class: "STANDARD", Bytes: 1024 * 1024 * 380, Count: 110},
-				{Class: "GLACIER", Bytes: 1024 * 1024 * 40, Count: 14},
+			ByKind: []store.KindTotal{
+				{Kind: "image", Bytes: 1024 * 1024 * 280, Count: 86},
+				{Kind: "video", Bytes: 1024 * 1024 * 110, Count: 12},
+				{Kind: "document", Bytes: 1024 * 1024 * 30, Count: 26},
 			},
+			Recent:       17,
+			LastModified: time.Now().Add(-3 * time.Hour),
 			Largest: []store.Entry{
 				{Key: "videos/launch.mp4", Name: "launch.mp4", Size: 1024 * 1024 * 85},
 				{Key: "images/hero.raw", Name: "hero.raw", Size: 1024 * 1024 * 45},
@@ -237,5 +244,161 @@ func TestGenerateShots(t *testing.T) {
 		tester := ui.NewTester(a.view, 1180, 760)
 		tester.SetTitleBar(ui.TitleBar{Height: 52, Left: 79})
 		save(tester, "settings.png")
+
+		a.settingsPage = pageConnections
+		save(tester, "settings-connections.png")
+		a.settingsPage = pageAbout
+		save(tester, "settings-about.png")
+	}
+
+	// 9. Recent files
+	{
+		a := nativeTestApp(t)
+		a.session = SessionInfo{Connected: true, Profile: &p, Host: "s3.example.com"}
+		a.bucket = "acme-media"
+		a.section = sectionRecent
+		a.recent = []recentEntry{
+			{Bucket: "acme-media", Key: "images/hero.png", Name: "hero.png", Size: 2_048_000, At: time.Now().Add(-4 * time.Minute)},
+			{Bucket: "acme-media", Key: "notes/todo.md", Name: "todo.md", Size: 1_204, At: time.Now().Add(-2 * time.Hour)},
+			{Bucket: "acme-media", Key: "videos/launch.mp4", Name: "launch.mp4", Size: 91_400_000, At: time.Now().Add(-26 * time.Hour)},
+		}
+		tester := ui.NewTester(a.view, 1180, 760)
+		tester.SetTitleBar(ui.TitleBar{Height: 52, Left: 79})
+		save(tester, "recent.png")
+	}
+}
+
+// TestFlows walks the interactions a person performs: the type filter,
+// the sort field, the view switch, the sidebar's places, the transfers
+// dock, and the pages of the settings sheet.
+func TestFlows(t *testing.T) {
+	a := nativeTestApp(t)
+	p := store.Profile{ID: "demo", Name: "Acme Media", Endpoint: "https://s3.example.com"}
+	a.session = SessionInfo{Connected: true, Profile: &p, Host: "s3.example.com"}
+	a.bucket = "acme-media"
+	a.section = sectionFiles
+	a.listing = store.Listing{Items: []store.Entry{
+		{Key: "images/", Name: "images", Folder: true},
+		{Key: "a.png", Name: "a.png", Size: 2048, LastModified: time.Now()},
+		{Key: "b.txt", Name: "b.txt", Size: 412, LastModified: time.Now()},
+	}}
+	tester := ui.NewTester(a.view, 1180, 760)
+	tester.SetTitleBar(ui.TitleBar{Height: 52, Left: 79})
+	tester.Frame()
+
+	// The type filter is a menu of the kinds, and it narrows the listing.
+	if err := tester.Click("Type"); err != nil {
+		t.Fatal(err)
+	}
+	tester.Frame()
+	if err := tester.Click("Images"); err != nil {
+		t.Fatalf("type menu: %v", err)
+	}
+	tester.Frame()
+	if a.filter != "image" {
+		t.Fatalf("filter=%q", a.filter)
+	}
+	if got := len(a.visible()); got != 1 {
+		t.Fatalf("the images filter left %d entries", got)
+	}
+	a.filter = "all"
+	tester.Frame()
+
+	// The sort menu orders the listing by date.
+	if err := tester.Click("Sort"); err != nil {
+		t.Fatal(err)
+	}
+	tester.Frame()
+	if err := tester.Click("Date modified"); err != nil {
+		t.Fatalf("sort menu: %v", err)
+	}
+	tester.Frame()
+	if a.sort != sortModified {
+		t.Fatalf("sort=%q", a.sort)
+	}
+
+	// The view switch changes how the listing is drawn.
+	if err := tester.Click("List view"); err != nil {
+		t.Fatal(err)
+	}
+	tester.Frame()
+	if a.mode != viewList {
+		t.Fatalf("mode=%q", a.mode)
+	}
+
+	// The sidebar's places.
+	if err := tester.Click("Recent files"); err != nil {
+		t.Fatal(err)
+	}
+	tester.Frame()
+	if a.section != sectionRecent {
+		t.Fatalf("section=%q", a.section)
+	}
+	if err := tester.Click("All files"); err != nil {
+		t.Fatal(err)
+	}
+	tester.Frame()
+	if a.section != sectionFiles {
+		t.Fatalf("section=%q", a.section)
+	}
+
+	// Transfers is a panel over the corner, not a place in the sidebar.
+	a.transfersOpen = true
+	tester.Frame()
+	if !tester.HasText("No transfers yet") {
+		t.Fatalf("the transfers dock is missing: %v", tester.Texts())
+	}
+	a.transfersOpen = false
+
+	// Settings is one sheet with three pages.
+	if err := tester.Click("Settings"); err != nil {
+		t.Fatal(err)
+	}
+	tester.Frame()
+	for _, page := range []string{"Connections", "About", "Preferences"} {
+		if err := tester.Click(page); err != nil {
+			t.Fatalf("page %s: %v", page, err)
+		}
+		tester.Frame()
+	}
+}
+
+// TestSelectionActionsReplaceTheToolbar checks that choosing a row swaps
+// the toolbar for the actions that apply to it, and that deselecting
+// brings the usual actions back.
+func TestSelectionActionsReplaceTheToolbar(t *testing.T) {
+	a := nativeTestApp(t)
+	p := store.Profile{ID: "demo", Name: "Acme Media", Endpoint: "https://s3.example.com"}
+	a.session = SessionInfo{Connected: true, Profile: &p, Host: "s3.example.com"}
+	a.bucket = "acme-media"
+	a.section = sectionFiles
+	a.listing = store.Listing{Items: []store.Entry{
+		{Key: "a.png", Name: "a.png", Size: 2048, LastModified: time.Now()},
+	}}
+	tester := ui.NewTester(a.view, 1180, 760)
+	tester.SetTitleBar(ui.TitleBar{Height: 52, Left: 79})
+	tester.Frame()
+
+	if err := tester.Click("Select all"); err != nil {
+		t.Fatal(err)
+	}
+	tester.Frame()
+	if !a.hasSelection() {
+		t.Fatal("select all chose nothing")
+	}
+	for _, action := range []string{"Download", "Move", "Delete", "Deselect"} {
+		if err := tester.Click(action); err != nil && action != "Delete" {
+			t.Fatalf("%s: %v", action, err)
+		}
+		tester.Frame()
+		if action == "Deselect" {
+			break
+		}
+	}
+	if a.hasSelection() {
+		t.Fatal("deselect left the selection in place")
+	}
+	if !tester.HasText("New folder") {
+		t.Fatalf("the usual actions did not come back: %v", tester.Texts())
 	}
 }

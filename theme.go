@@ -2,17 +2,13 @@ package main
 
 import "github.com/egoist/mygo/ui"
 
-// The palette Bucketeer draws with.
+// The palette Bucketeer draws with, taken from the reference client.
 //
-// The interface is two planes. The functional plane — the sidebar and the
-// bar along the top — is a material: one quiet color, separated from what
-// is under it by a hairline and nothing else. The content plane is the
-// canvas files and figures sit on. Depth is spent only where something
-// genuinely floats above the window: menus, popovers, dialogs.
-//
-// Nothing here is a bevel. A surface is a fill, a hairline, and the text
-// on it; the light in this app comes from the window it sits in, not from
-// a lamp drawn on top of every control.
+// The window is two planes: a light sidebar, and a canvas for content.
+// Controls are white plates with a hairline and a shadow so faint it only
+// shows on a light page. One accent — a strong blue — marks the chosen
+// place and the one action a screen wants. Nothing is bevelled, nothing
+// is textured.
 
 func bucketeerTheme(dark bool) *ui.Theme {
 	if dark {
@@ -23,89 +19,89 @@ func bucketeerTheme(dark bool) *ui.Theme {
 
 func lightTheme() *ui.Theme {
 	t := ui.LightTheme()
-	t.Background = ui.Hex("#E7E7EB") // behind everything
-	t.Surface = ui.Hex("#FFFFFF")    // the canvas
-	t.SurfaceHover = ui.Hex("#F1F1F4")
-	t.SurfacePressed = ui.Hex("#E6E6EA")
-	t.Border = ui.Hex("#D3D3D9") // a hairline
-	t.Text = ui.Hex("#1C1C1E")   // 17.0:1 on the canvas
-	t.TextMuted = ui.Hex("#5C5C66")
-	t.Accent = ui.Hex("#0A6EDB") // 4.9:1 on the canvas
-	t.AccentHover = ui.Hex("#0966C6")
-	t.AccentPressed = ui.Hex("#0857B0")
+	t.Background = ui.Hex("#F7F7F7") // behind everything: the sidebar
+	t.Surface = ui.Hex("#FFFFFF")    // the content canvas
+	t.SurfaceHover = ui.Hex("#F4F4F5")
+	t.SurfacePressed = ui.Hex("#EBEBED")
+	t.Border = ui.Hex("#E4E4E7") // a hairline
+	t.Text = ui.Hex("#1D1D1F")
+	t.TextMuted = ui.Hex("#86868B")
+	t.Accent = ui.Hex("#3163F4")
+	t.AccentHover = ui.Hex("#2A57DC")
+	t.AccentPressed = ui.Hex("#244BC4")
 	t.AccentText = ui.Hex("#FFFFFF")
-	t.Danger = ui.Hex("#A8201A")
-	t.Warning = ui.Hex("#7A4E00")
-	t.Success = ui.Hex("#186A38")
-	t.Selection = ui.Hex("#DEEBFB")
-	t.Focus = ui.RGBA(10, 110, 219, 0.55)
-	t.Scrollbar = ui.RGBA(0, 0, 0, 0.26)
-	t.Inverse = ui.Hex("#2C2C2E")
+	t.Danger = ui.Hex("#D93025")
+	t.Warning = ui.Hex("#B25000")
+	t.Success = ui.Hex("#1E8E3E")
+	t.Selection = ui.Hex("#E8EEFE")
+	t.Focus = ui.RGBA(49, 99, 244, 0.45)
+	t.Scrollbar = ui.RGBA(0, 0, 0, 0.20)
+	t.Inverse = ui.Hex("#1D1D1F")
 	t.InverseText = ui.Hex("#FFFFFF")
-	t.Radius = 6
+	t.Radius = 7
 	t.Spacing = 4
 	return t
 }
 
 func darkTheme() *ui.Theme {
 	t := ui.DarkTheme()
-	t.Background = ui.Hex("#121214")
-	t.Surface = ui.Hex("#1B1B1E") // the canvas
-	t.SurfaceHover = ui.Hex("#28282C")
-	t.SurfacePressed = ui.Hex("#101012")
-	t.Border = ui.Hex("#3A3A41")
-	t.Text = ui.Hex("#F5F5F7") // 15.8:1 on the canvas
-	t.TextMuted = ui.Hex("#A0A0A8")
-	t.Accent = ui.Hex("#7CB8FF")
-	t.AccentHover = ui.Hex("#93C6FF")
-	t.AccentPressed = ui.Hex("#5FA8F5")
-	t.AccentText = ui.Hex("#0A1A2E")
-	t.Danger = ui.Hex("#FF6961")
-	t.Warning = ui.Hex("#FFC53D")
+	t.Background = ui.Hex("#1E1E20")
+	t.Surface = ui.Hex("#161618")
+	t.SurfaceHover = ui.Hex("#26262A")
+	t.SurfacePressed = ui.Hex("#303036")
+	t.Border = ui.Hex("#38383C")
+	t.Text = ui.Hex("#F5F5F7")
+	t.TextMuted = ui.Hex("#98989F")
+	t.Accent = ui.Hex("#3E6DF6")
+	t.AccentHover = ui.Hex("#527CF8")
+	t.AccentPressed = ui.Hex("#325EE0")
+	t.AccentText = ui.Hex("#FFFFFF")
+	t.Danger = ui.Hex("#FF6B60")
+	t.Warning = ui.Hex("#FFB340")
 	t.Success = ui.Hex("#3DD68C")
-	t.Selection = ui.Hex("#1E3A5C")
-	t.Focus = ui.RGBA(124, 184, 255, 0.65)
-	t.Scrollbar = ui.RGBA(255, 255, 255, 0.26)
-	t.Inverse = ui.Hex("#F2F2F5")
-	t.InverseText = ui.Hex("#1C1C1E")
-	t.Radius = 6
+	t.Selection = ui.Hex("#22314F")
+	t.Focus = ui.RGBA(62, 109, 246, 0.60)
+	t.Scrollbar = ui.RGBA(255, 255, 255, 0.22)
+	t.Inverse = ui.Hex("#F5F5F7")
+	t.InverseText = ui.Hex("#1D1D1F")
+	t.Radius = 7
 	t.Spacing = 4
 	return t
 }
 
 /* -------------------------------------------------------------------------
-   The surfaces chrome.go paints with
+   chrome is the set of surfaces the app draws on
    ------------------------------------------------------------------------- */
 
-// chrome is the set of surfaces the app draws on, and the marks that
-// separate them. Every name here is a plane of the interface rather than
-// an object standing on another one.
 type chrome struct {
-	// The material the sidebar and the top bar share.
-	material ui.Color
-	// The canvas the content sits on.
-	canvas ui.Color
-	// A recessed plane: table headers, summary bars, grouped settings.
+	// sidebar is the plane the navigation sits on, behind the window's
+	// own controls; canvas is the plane files and figures sit on.
+	sidebar ui.Color
+	canvas  ui.Color
+	// plate is the face of a control standing on the canvas: a white
+	// card with a hairline and a shadow faint enough to read as depth.
+	plate ui.Color
+	// inset is a recessed plane: table headers, summary bands, a
+	// thumbnail's plate, a field that takes typing.
 	inset ui.Color
-	// A field that takes typing.
-	field ui.Color
+	// well is the fill of a text field.
+	well ui.Color
 
-	// The marks between planes.
-	hairline      ui.Color // a single quiet rule
-	hairlineFaint ui.Color // the same rule, for a long list
-	hairlineEdge  ui.Color // the rule under the material
+	hairline      ui.Color
+	hairlineFaint ui.Color
 
-	// Washes for hover, selection and pressed, laid over whatever is
-	// under them.
-	hover      ui.Color
-	pressed    ui.Color
+	hover   ui.Color
+	pressed ui.Color
+
+	// selected is the fill of the chosen row, and selectedOn its label.
 	selected   ui.Color
-	selectedOn ui.Color // text on a selected row
+	selectedOn ui.Color
+	// accentOn is a glyph or a count drawn in the accent.
+	accentOn ui.Color
 
-	// Shadow, for the things that truly float: menus, popovers, dialogs.
 	floatShadow ui.Color
+	plateShadow ui.Color
 
-	// Accent and danger as filled buttons, and their own labels.
 	accentFill    ui.Color
 	accentFillHov ui.Color
 	accentFillPrs ui.Color
@@ -118,88 +114,87 @@ type chrome struct {
 	scrim ui.Color
 }
 
-// blend lays color over what is under it, at the given strength.
-func blend(c ui.Color, amount float32) ui.Color {
-	return c.Alpha(amount)
-}
-
 func chromeOf(t *ui.Theme) chrome {
 	if t.Dark {
 		return chrome{
-			material: ui.Hex("#28282C"),
-			canvas:   ui.Hex("#1B1B1E"),
-			inset:    ui.Hex("#232327"),
-			field:    ui.Hex("#141416"),
+			sidebar: ui.Hex("#1E1E20"),
+			canvas:  ui.Hex("#161618"),
+			plate:   ui.Hex("#232326"),
+			inset:   ui.Hex("#26262A"),
+			well:    ui.Hex("#232326"),
 
-			hairline:      ui.Hex("#3A3A41"),
-			hairlineFaint: ui.Hex("#2E2E34"),
-			hairlineEdge:  ui.Hex("#3A3A41"),
+			hairline:      ui.Hex("#38383C"),
+			hairlineFaint: ui.Hex("#2A2A2E"),
 
-			hover:      ui.RGBA(255, 255, 255, 0.06),
-			pressed:    ui.RGBA(255, 255, 255, 0.03),
-			selected:   ui.Hex("#1E3A5C"),
-			selectedOn: ui.Hex("#F5F5F7"),
+			hover:   ui.RGBA(255, 255, 255, 0.07),
+			pressed: ui.RGBA(255, 255, 255, 0.04),
+
+			selected:   ui.Hex("#3E6DF6"),
+			selectedOn: ui.Hex("#FFFFFF"),
+			accentOn:   ui.Hex("#7FA2FF"),
 
 			floatShadow: ui.RGBA(0, 0, 0, 0.55),
+			plateShadow: ui.RGBA(0, 0, 0, 0.35),
 
-			accentFill:    ui.Hex("#0A84FF"),
-			accentFillHov: ui.Hex("#3D9BFF"),
-			accentFillPrs: ui.Hex("#0072E6"),
+			accentFill:    ui.Hex("#3E6DF6"),
+			accentFillHov: ui.Hex("#527CF8"),
+			accentFillPrs: ui.Hex("#325EE0"),
 			accentOnFill:  ui.Hex("#FFFFFF"),
 
 			dangerFill:    ui.Hex("#C9342A"),
 			dangerFillHov: ui.Hex("#DC4136"),
 			dangerOnFill:  ui.Hex("#FFFFFF"),
 
-			scrim: ui.RGBA(0, 0, 0, 0.45),
+			scrim: ui.RGBA(0, 0, 0, 0.55),
 		}
 	}
 	return chrome{
-		material: ui.Hex("#EAEAEE"),
-		canvas:   ui.Hex("#FFFFFF"),
-		inset:    ui.Hex("#F4F4F6"),
-		field:    ui.Hex("#FFFFFF"),
+		sidebar: ui.Hex("#F7F7F7"),
+		canvas:  ui.Hex("#FFFFFF"),
+		plate:   ui.Hex("#FFFFFF"),
+		inset:   ui.Hex("#F2F2F4"),
+		well:    ui.Hex("#F2F2F4"),
 
-		hairline:      ui.Hex("#D3D3D9"),
-		hairlineFaint: ui.Hex("#E4E4E9"),
-		hairlineEdge:  ui.Hex("#D3D3D9"),
+		hairline:      ui.Hex("#E4E4E7"),
+		hairlineFaint: ui.Hex("#EFEFF1"),
 
-		hover:      ui.RGBA(0, 0, 0, 0.045),
-		pressed:    ui.RGBA(0, 0, 0, 0.09),
-		selected:   ui.Hex("#DEEBFB"),
-		selectedOn: ui.Hex("#1C1C1E"),
+		hover:   ui.RGBA(0, 0, 0, 0.045),
+		pressed: ui.RGBA(0, 0, 0, 0.085),
 
-		floatShadow: ui.RGBA(0, 0, 0, 0.20),
+		selected:   ui.Hex("#3163F4"),
+		selectedOn: ui.Hex("#FFFFFF"),
+		accentOn:   ui.Hex("#3163F4"),
 
-		accentFill:    ui.Hex("#0064CE"), // 5.8:1 under its white label
-		accentFillHov: ui.Hex("#0057B4"),
-		accentFillPrs: ui.Hex("#004A9C"),
+		floatShadow: ui.RGBA(0, 0, 0, 0.16),
+		plateShadow: ui.RGBA(0, 0, 0, 0.05),
+
+		accentFill:    ui.Hex("#3163F4"),
+		accentFillHov: ui.Hex("#2A57DC"),
+		accentFillPrs: ui.Hex("#244BC4"),
 		accentOnFill:  ui.Hex("#FFFFFF"),
 
-		dangerFill:    ui.Hex("#A8201A"),
-		dangerFillHov: ui.Hex("#8E1A15"),
+		dangerFill:    ui.Hex("#D93025"),
+		dangerFillHov: ui.Hex("#BE2A20"),
 		dangerOnFill:  ui.Hex("#FFFFFF"),
 
-		scrim: ui.RGBA(0, 0, 0, 0.28),
+		scrim: ui.RGBA(0, 0, 0, 0.22),
 	}
 }
 
 /* -------------------------------------------------------------------------
    The type scale
-
-   Four sizes carry the whole interface. Anything that is not one of them
-   is a mistake waiting to happen.
    ------------------------------------------------------------------------- */
 
 const (
-	typeCaption  = 11.0 // counts, hints, column headings
+	typeMicro    = 10.0 // a badge, a key hint
+	typeCaption  = 11.5 // counts, hints, column headings
+	typeSmall    = 12.0 // the second line of a row
 	typeBody     = 13.0 // everything a person reads
 	typeHeadline = 15.0 // dialog titles, section headings
-	typeTitle    = 20.0 // the bucket on the dashboard
+	typeTitle    = 20.0 // the place being browsed
+	typeDisplay  = 26.0 // a figure on the dashboard
 )
 
-// Weights, named so that a reader can tell at a glance whether a size
-// is being asked to carry hierarchy on its own or with a heavier stroke.
 const (
 	weightMedium = 500
 	weightSemi   = 600
@@ -221,54 +216,50 @@ const (
 	kindOther    fileKind = "other"
 )
 
-// kindTint returns the color that stands for a kind of file. Each one is
-// at least 4.5:1 against the canvas, because a glyph may be the only
-// thing telling two kinds of file apart.
+// kindTint returns the color that stands for a kind of file: the color of
+// its plate, and of its glyph.
 func kindTint(t *ui.Theme, k fileKind) ui.Color {
 	switch k {
 	case kindFolder:
 		if t.Dark {
-			return ui.Hex("#5FB3EE")
+			return ui.Hex("#5B8DFF")
 		}
-		return ui.Hex("#1E7BBD")
+		return ui.Hex("#3B7DF6")
 	case kindImage:
 		if t.Dark {
-			return ui.Hex("#A99BF0")
+			return ui.Hex("#B18CFF")
 		}
-		return ui.Hex("#6B4FBF")
+		return ui.Hex("#8B5CF6")
 	case kindAudio:
 		if t.Dark {
 			return ui.Hex("#4FC98C")
 		}
-		return ui.Hex("#177E4F")
+		return ui.Hex("#16A34A")
 	case kindVideo:
 		if t.Dark {
-			return ui.Hex("#FF7A90")
+			return ui.Hex("#FF8A80")
 		}
-		return ui.Hex("#BE3A56")
+		return ui.Hex("#EF5350")
 	case kindArchive:
 		if t.Dark {
 			return ui.Hex("#E0A94A")
 		}
-		return ui.Hex("#9A6206")
+		return ui.Hex("#F59E0B")
 	case kindDocument:
 		if t.Dark {
-			return ui.Hex("#7FC3DC")
+			return ui.Hex("#6FC3E8")
 		}
-		return ui.Hex("#2F6B85")
+		return ui.Hex("#0EA5E9")
 	default:
 		return t.TextMuted
 	}
 }
 
-// kindWash returns the faintest wash of a kind's color, for the small
-// plate a glyph sits on. It carries no information of its own.
+// kindWash is the plate a kind's glyph sits on: the kind's color at a
+// strength that stays quiet behind a white glyph.
 func kindWash(t *ui.Theme, k fileKind) ui.Color {
-	if k == kindFolder {
-		return ui.Transparent
-	}
 	if t.Dark {
-		return kindTint(t, k).Alpha(0.16)
+		return kindTint(t, k).Alpha(0.18)
 	}
 	return kindTint(t, k).Alpha(0.10)
 }

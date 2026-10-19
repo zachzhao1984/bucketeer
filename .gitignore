@@ -7,3 +7,9 @@ r2.json
 resources/r2.json
 *.local.json
 mygo_windows_*.syso
+
+# The agent's own working files: a local skill install, its lock file, and
+# the traces a harness keeps while it works.
+.agents/
+skills-lock.json
+.graff/

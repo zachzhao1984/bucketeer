@@ -8,27 +8,21 @@ import (
 	"bucketeer/internal/store"
 )
 
-// panel is a section of a page: a heading, the room around it, and the
-// body beneath. Nothing here is a plate standing on another plate; the
-// page is one plane and these are marks on it.
-func panel(c *ui.Context, title string, body func()) {
-	ui.Column(c).FillWidth().Gap(10).Children(func() {
-		panelHeading(c, title)
-		ui.Column(c).FillWidth().Children(body)
-	})
-}
-
 /* -------------------------------------------------------------------------
    Dashboard
+
+   Four figures across the top, then what the bytes are, by folder and by
+   kind. Everything is a card standing on the canvas, with its own name on
+   it and its figures under that.
    ------------------------------------------------------------------------- */
 
 func (a *App) dashboard(c *ui.Context) {
 	t := c.Theme()
 
 	if a.bucket == "" {
-		emptyState(c, iconDashboard, "Select a Storage Bucket",
-			"Open a bucket from Files to inspect its storage breakdown.", func() {
-				if ctlPrimary(c, "Browse Buckets").Clicked() {
+		emptyState(c, iconDashboard, "Select a bucket",
+			"Open a bucket from All files to see what is in it.", func() {
+				if ctlPrimary(c, "Browse buckets").Clicked() {
 					a.setSection(sectionFiles)
 					a.loadBuckets()
 				}
@@ -37,151 +31,183 @@ func (a *App) dashboard(c *ui.Context) {
 	}
 
 	ui.Scroll(c).Grow(1).Children(func() {
-		ui.Column(c).FillWidth().Padding(22, 26).Gap(28).Children(func() {
-			a.dashboardHeader(c)
-
+		ui.Column(c).FillWidth().Padding(18).Gap(14).Children(func() {
 			if a.stat == nil {
-				ui.Box(c).Padding(48).Center().Children(func() {
-					ui.Text(c, "Measure the bucket to scan its storage distribution.").
-						FontSize(typeBody).
-						TextColor(t.TextMuted)
+				if a.statLoading {
+					a.dashboardLoading(c)
+					return
+				}
+				ui.Box(c).FillWidth().Padding(60).Center().Children(func() {
+					ui.Column(c).Gap(10).AlignItems(ui.Center).Children(func() {
+						ui.Text(c, "Nothing measured yet").
+							FontSize(typeBody).
+							TextColor(t.TextMuted)
+						if ctlPrimary(c, "Measure this bucket").Clicked() {
+							a.loadStat()
+						}
+					})
 				})
 				return
 			}
 
 			s := a.stat
-			a.dashboardMetrics(c, s)
+			a.dashboardFigures(c, s)
 
 			if s.Partial {
 				warn := ui.Row(c).
-					Padding(8, 11).
+					Padding(9, 12).
 					Radius(btnRadius).
 					Gap(8).
 					AlignItems(ui.Center).
-					Background(t.Warning.Alpha(0.10)).
+					Background(t.Warning.Alpha(0.09)).
 					Border(0, ui.Transparent)
 				warn.Children(func() {
 					ui.Icon(c, iconAlert).FontSize(14).TextColor(t.Warning).Shrink(0)
-					ui.Text(c, "Scan capped at 50,000 objects. Totals are a lower bound.").
+					ui.Text(c, "The scan stopped at 50,000 objects. The totals are a lower bound.").
 						FontSize(typeCaption).
 						TextColor(t.Text)
 				})
 			}
 
-			if len(s.TopFolders) > 0 {
-				a.dashboardFolders(c, s)
-			}
-			if len(s.ByClass) > 0 {
-				a.dashboardClasses(c, s)
-			}
-			if len(s.Largest) > 0 {
-				a.dashboardLargest(c, s)
-			}
+			ui.Row(c).FillWidth().Gap(14).Children(func() {
+				ui.Column(c).Grow(1).Children(func() {
+					a.dashboardFolders(c, s)
+				})
+			})
+
+			ui.Row(c).FillWidth().Gap(14).Children(func() {
+				ui.Column(c).Grow(1).Children(func() {
+					a.dashboardKinds(c, s)
+				})
+			})
 		})
 	})
 }
 
-// dashboardHeader names the bucket these figures belong to.
-func (a *App) dashboardHeader(c *ui.Context) {
-	t := c.Theme()
-
-	ui.Row(c).FillWidth().Gap(12).AlignItems(ui.Center).Children(func() {
-		mark := ui.Box(c).Size(38, 38).Radius(9).Center().Shrink(0).
-			Background(ui.Transparent).Border(0, ui.Transparent)
-		mark.Draw(func(p *ui.Painter, r ui.Rect) {
-			p.Fill(r, kindWash(t, kindFolder), 9)
-		})
-		mark.Children(func() {
-			ui.Icon(c, iconBucket).FontSize(20).TextColor(kindTint(t, kindFolder))
-		})
-
-		ui.Column(c).Grow(1).Gap(1).Children(func() {
-			ui.Text(c, a.bucket).
-				FontSize(typeTitle).
-				FontWeight(weightSemi).
-				TextColor(t.Text).
-				SingleLine().
-				Ellipsis("…")
-			ui.Text(c, "Storage").FontSize(typeCaption).TextColor(t.TextMuted)
-		})
-
-		if a.statLoading {
-			ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
-				ui.Spinner(c).Label("Measuring")
-			})
-		} else {
-			remeasure := ctlButton(c, "Re-measure")
-			if remeasure.Clicked() {
-				a.loadStat()
-			}
+// dashboardLoading stands in for figures that have not been counted yet.
+func (a *App) dashboardLoading(c *ui.Context) {
+	ch := chromeOf(c.Theme())
+	ui.Row(c).FillWidth().Gap(14).Children(func() {
+		for i := range 4 {
+			ui.Box(c).Key(i).Grow(1).Height(128).Radius(12).Background(ui.Transparent).
+				Draw(func(p *ui.Painter, r ui.Rect) {
+					p.Fill(r, ch.inset, 12)
+				})
 		}
 	})
 }
 
-// dashboardMetrics are the three figures worth knowing at a glance.
-func (a *App) dashboardMetrics(c *ui.Context, s *store.Stat) {
+// dashboardFigures are the four figures worth knowing at a glance, each
+// on a card with a colored mark.
+func (a *App) dashboardFigures(c *ui.Context, s *store.Stat) {
 	t := c.Theme()
 
-	avgSize := "—"
+	avg := "—"
 	if s.Objects > 0 {
-		avgSize = formatBytes(s.Bytes / s.Objects)
+		avg = formatBytes(s.Bytes / s.Objects)
 	}
+	largest := "—"
+	if len(s.Largest) > 0 {
+		largest = formatBytes(s.Largest[0].Size)
+	}
+	changed := "Never"
+	if !s.LastModified.IsZero() {
+		changed = formatRelative(s.LastModified, now())
+	}
+
 	figures := []struct {
+		glyph *ui.SVG
+		tint  ui.Color
 		label string
 		value string
-		sub   string
+		chip  string
+		tally string
 	}{
-		{"Total Storage", formatBytes(s.Bytes), plural(int(s.Objects), "object", "objects")},
-		{"Objects", formatCount(int(s.Objects)), plural(int(s.Folders), "folder", "folders")},
-		{"Average Object", avgSize, "across all keys"},
+		{iconBucket, kindTint(t, kindFolder), "Total storage", formatBytes(s.Bytes), "Largest", largest},
+		{iconFiles, kindTint(t, kindImage), "Objects", formatCount(int(s.Objects)), "Folders", formatCount(int(s.Folders))},
+		{iconDashboard, kindTint(t, kindArchive), "Avg. object size", avg, "Largest object", largest},
+		{iconRecent, kindTint(t, kindAudio), "Modified · 7 days", formatCount(int(s.Recent)), "Last changed", changed},
 	}
 
-	ui.Row(c).FillWidth().Gap(16).Children(func() {
+	ui.Row(c).FillWidth().Gap(14).Children(func() {
 		for _, f := range figures {
-			figure := f
-			ui.Column(c).Grow(1).Gap(2).Children(func() {
-				ui.Text(c, figure.label).
-					FontSize(typeCaption).
-					FontWeight(weightMedium).
-					TextColor(t.TextMuted)
-				ui.Text(c, figure.value).
-					FontSize(typeTitle).
-					FontWeight(weightSemi).
-					TextColor(t.Text)
-				ui.Text(c, figure.sub).
-					FontSize(typeCaption).
-					TextColor(t.TextMuted)
+			fig := f
+			box := card(c).Grow(1).Shrink(1).Padding(14).Gap(8)
+			box.Children(func() {
+				iconPlate(c, fig.glyph, fig.tint, 32)
+				ui.Column(c).Gap(1).Children(func() {
+					ui.Text(c, fig.label).FontSize(typeBody).TextColor(t.TextMuted).SingleLine()
+					ui.Text(c, fig.value).
+						FontSize(typeDisplay).
+						FontWeight(weightSemi).
+						TextColor(t.Text).
+						SingleLine().
+						Ellipsis("…")
+				})
+				ui.Spacer(c)
+				tally := ui.Row(c).FillWidth().Padding(5, 8).Radius(7).
+					Background(chromeOf(t).inset).Gap(6).AlignItems(ui.Center)
+				tally.Children(func() {
+					ui.Text(c, fig.chip).FontSize(typeCaption).TextColor(t.TextMuted).Grow(1).SingleLine().Ellipsis("…")
+					ui.Text(c, fig.tally).FontSize(typeCaption).FontWeight(weightMedium).TextColor(t.Text).SingleLine().Ellipsis("…")
+				})
 			})
 		}
 	})
-
-	// The rule that ends the figures, under them and across the page.
-	ui.Row(c).FillWidth().Children(func() { rule(c, 0, chromeOf(t).hairline) })
 }
 
-// dashboardFolders shows where the bytes are, as one bar of shares
-// above the list that gives them names.
+// dashboardFolders is where the bytes are, as a bar of shares above the
+// list that names them.
 func (a *App) dashboardFolders(c *ui.Context, s *store.Stat) {
 	t := c.Theme()
-
-	largest := int64(1)
-	for _, f := range s.TopFolders {
-		largest = max(largest, f.Bytes)
+	if len(s.TopFolders) == 0 {
+		return
 	}
 
-	panel(c, "Where the Space Goes", func() {
+	box := card(c).FillWidth().Padding(16).Gap(12)
+	box.Children(func() {
+		ui.Row(c).FillWidth().AlignItems(ui.Center).Children(func() {
+			ui.Column(c).Grow(1).Gap(2).Children(func() {
+				ui.Text(c, "Storage by folder").FontSize(typeBody).FontWeight(weightMedium).TextColor(t.Text)
+				ui.Text(c, formatBytes(s.Bytes)).FontSize(typeTitle).FontWeight(weightSemi).TextColor(t.Text)
+			})
+			// The figures can be read as bytes or as a count, so the
+			// switch is the one thing this card asks.
+			sizeOn := !a.foldersByCount
+			track := ctlSegmentTrack(c)
+			track.Children(func() {
+				seg := ctlSegment(c, &sizeOn, "Size")
+				seg.Width(58)
+				seg.Children(func() {
+					ui.Text(c, "Size").FontSize(typeCaption).TextColor(segmentTint(sizeOn, t))
+				})
+				seg.OnClick(func() {
+					sizeOn = true
+					a.foldersByCount = false
+				})
+
+				countOn := a.foldersByCount
+				seg2 := ctlSegment(c, &countOn, "Objects")
+				seg2.Width(66)
+				seg2.Children(func() {
+					ui.Text(c, "Objects").FontSize(typeCaption).TextColor(segmentTint(countOn, t))
+				})
+				seg2.OnClick(func() {
+					countOn = true
+					a.foldersByCount = true
+				})
+			})
+		})
+
 		// The whole bucket as one bar: a segment per folder, sized by its
-		// share of the total, the largest darkest. It is set in a track
-		// so it reads as a composition rather than as something filling
-		// up.
-		track := ui.Box(c).FillWidth().Height(12).Radius(6).Clip().
-			Background(chromeOf(t).inset).Border(0, ui.Transparent)
-		track.Children(func() {
+		// share of the total.
+		bar := ui.Box(c).FillWidth().Height(12).Radius(6).Clip().Background(chromeOf(t).inset)
+		bar.Children(func() {
 			ui.Row(c).Fill().Gap(2).Children(func() {
 				for i, f := range s.TopFolders {
 					folder := f
 					share := float32(float64(folder.Bytes) / float64(max(s.Bytes, 1)))
-					rank := float32(0.42 + 0.48*float64(i)/float64(max(len(s.TopFolders)-1, 1)))
+					rank := float32(0.38 + 0.52*float64(i)/float64(max(len(s.TopFolders)-1, 1)))
 					ui.Box(c).
 						Grow(max(share, 0.02)).
 						FillHeight().
@@ -192,27 +218,48 @@ func (a *App) dashboardFolders(c *ui.Context, s *store.Stat) {
 			})
 		})
 
-		ui.Column(c).FillWidth().Margin(10).Gap(9).Children(func() {
+		ui.Column(c).FillWidth().Gap(2).Children(func() {
+			largest := int64(1)
+			for _, f := range s.TopFolders {
+				if a.foldersByCount {
+					largest = max(largest, f.Objects)
+				} else {
+					largest = max(largest, f.Bytes)
+				}
+			}
 			for _, f := range s.TopFolders {
 				folder := f
-				pct := float64(folder.Bytes) / float64(max(s.Bytes, 1)) * 100
-				ui.Row(c.Key(folder.Prefix)).FillWidth().Gap(12).AlignItems(ui.Center).Children(func() {
-					ui.Icon(c, iconFolder).FontSize(14).TextColor(kindTint(t, kindFolder)).Shrink(0)
-					ui.Text(c, folder.Name).
-						Width(140).
+				share, value := float64(folder.Bytes)/float64(largest), formatBytes(folder.Bytes)
+				if a.foldersByCount {
+					share, value = float64(folder.Objects)/float64(largest), formatCount(int(folder.Objects))
+				}
+				row := ui.Row(c).Key(folder.Prefix).FillWidth().Height(34).Gap(10).
+					AlignItems(ui.Center).Cursor(ui.CursorPointer).Radius(7).
+					OnClick(func() {
+						a.setSection(sectionFiles)
+						a.openPrefix(folder.Prefix)
+					})
+				row.Label(folder.Name)
+				hovered := row.Hovered()
+				row.Background(ui.Transparent).Border(0, ui.Transparent).
+					Draw(func(p *ui.Painter, r ui.Rect) {
+						if hovered {
+							p.Fill(r, chromeOf(t).hover, 7)
+						}
+					})
+				row.Children(func() {
+					ui.Icon(c, iconFolder).FontSize(15).TextColor(kindTint(t, kindFolder)).Shrink(0)
+					ui.Text(c, folder.Name).Width(150).FontSize(typeBody).SingleLine().Ellipsis("…")
+					ctlMeter(c, share).Grow(1)
+					ui.Text(c, value).
+						Width(86).
 						FontSize(typeBody).
-						SingleLine().
-						Ellipsis("…")
-					ctlMeter(c, float64(folder.Bytes)/float64(largest)).Grow(1)
-					ui.Text(c, fmt.Sprintf("%.1f%%", pct)).
-						Width(48).
-						FontSize(typeCaption).
 						TextColor(t.TextMuted).
 						TextAlign(ui.End)
-					ui.Text(c, formatBytes(folder.Bytes)).
-						Width(76).
-						FontSize(typeBody).
-						FontWeight(weightMedium).
+					ui.Text(c, fmt.Sprintf("%.0f%%", float64(folder.Bytes)/float64(max(s.Bytes, 1))*100)).
+						Width(44).
+						FontSize(typeCaption).
+						TextColor(t.TextMuted).
 						TextAlign(ui.End)
 				})
 			}
@@ -220,166 +267,236 @@ func (a *App) dashboardFolders(c *ui.Context, s *store.Stat) {
 	})
 }
 
-// dashboardClasses is what the bytes are billed as.
-func (a *App) dashboardClasses(c *ui.Context, s *store.Stat) {
+// dashboardKinds is what the bytes are: a bar of the kinds, and the
+// figures beside it.
+func (a *App) dashboardKinds(c *ui.Context, s *store.Stat) {
 	t := c.Theme()
-	total := s.Bytes
-	if total <= 0 {
-		total = 1
+	if len(s.ByKind) == 0 {
+		return
 	}
 
-	panel(c, "Storage Classes", func() {
-		ui.Column(c).FillWidth().Gap(1).Children(func() {
-			for _, cl := range s.ByClass {
-				class := cl
-				ui.Row(c.Key(class.Class)).
-					FillWidth().
-					Padding(5, 2).
-					Radius(4).
-					Gap(12).
-					AlignItems(ui.Center).
-					Children(func() {
-						ui.Text(c, class.Class).
-							Width(120).
+	box := card(c).FillWidth().Padding(16).Gap(14)
+	box.Children(func() {
+		ui.Text(c, "Storage by type").FontSize(typeBody).FontWeight(weightMedium).TextColor(t.Text)
+
+		ui.Row(c).FillWidth().Gap(18).AlignItems(ui.Center).Children(func() {
+			// The total, as the reference client prints it beside the bar.
+			ui.Column(c).Gap(1).Shrink(0).Width(110).Children(func() {
+				ui.Text(c, formatBytes(s.Bytes)).FontSize(typeTitle).FontWeight(weightSemi).TextColor(t.Text)
+				ui.Text(c, "Total").FontSize(typeCaption).TextColor(t.TextMuted)
+			})
+
+			ui.Column(c).Grow(1).Gap(10).Children(func() {
+				for _, k := range s.ByKind {
+					kind := k
+					ui.Row(c).Key(kind.Kind).FillWidth().Gap(10).AlignItems(ui.Center).Children(func() {
+						led(c, kindTint(t, fileKind(kind.Kind)), 8)
+						ui.Text(c, kindName(kind.Kind)).
+							Width(80).
 							FontSize(typeBody).
-							SingleLine().
-							Ellipsis("…")
-						ctlMeter(c, float64(class.Bytes)/float64(total)).Grow(1)
-						ui.Text(c, plural(int(class.Count), "object", "objects")).
-							Width(84).
+							TextColor(t.Text).
+							SingleLine()
+						ctlMeter(c, float64(kind.Bytes)/float64(max(s.Bytes, 1))).Grow(1)
+						ui.Text(c, plural(int(kind.Count), "object", "objects")).
+							Width(80).
 							FontSize(typeCaption).
 							TextColor(t.TextMuted).
 							TextAlign(ui.End)
-						ui.Text(c, formatBytes(class.Bytes)).
-							Width(76).
+						ui.Text(c, formatBytes(kind.Bytes)).
+							Width(80).
 							FontSize(typeBody).
-							FontWeight(weightMedium).
+							TextColor(t.TextMuted).
+							TextAlign(ui.End)
+						ui.Text(c, fmt.Sprintf("%.0f%%", float64(kind.Bytes)/float64(max(s.Bytes, 1))*100)).
+							Width(42).
+							FontSize(typeCaption).
+							TextColor(t.TextMuted).
 							TextAlign(ui.End)
 					})
-			}
+				}
+			})
 		})
 	})
 }
 
-// dashboardLargest lists the heaviest objects, because those are the
-// ones worth knowing about.
-func (a *App) dashboardLargest(c *ui.Context, s *store.Stat) {
-	t := c.Theme()
-
-	panel(c, "Largest Objects", func() {
-		ui.Column(c).FillWidth().Gap(1).Children(func() {
-			for _, entry := range s.Largest {
-				e := entry
-				ui.Row(c.Key(e.Key)).
-					FillWidth().
-					Padding(4, 2).
-					Radius(4).
-					Gap(10).
-					AlignItems(ui.Center).
-					Children(func() {
-						ui.Icon(c, entryIcon(e)).
-							FontSize(14).
-							TextColor(kindTint(t, kindOf(e.Key, false))).
-							Shrink(0)
-						if ctlLink(c, e.Name).Grow(1).Clicked() {
-							a.showDetail(e.Key)
-						}
-						ui.Text(c, formatBytes(e.Size)).
-							Width(76).
-							FontSize(typeBody).
-							TextColor(t.TextMuted).
-							TextAlign(ui.End)
-					})
-			}
-		})
-	})
+// kindName is what a kind of file is called on the dashboard.
+func kindName(kind string) string {
+	switch kind {
+	case "image":
+		return "Images"
+	case "video":
+		return "Video"
+	case "audio":
+		return "Audio"
+	case "archive":
+		return "Archives"
+	case "document":
+		return "Documents"
+	default:
+		return "Other"
+	}
 }
 
 /* -------------------------------------------------------------------------
    Settings
+
+   A section list on the left and the page it shows on the right, inside
+   one floating sheet, as the reference client opens it.
    ------------------------------------------------------------------------- */
+
+type settingsPage int
+
+const (
+	pagePreferences settingsPage = iota
+	pageConnections
+	pageAbout
+)
 
 func (a *App) settings(c *ui.Context) {
 	t := c.Theme()
 
-	ui.Scroll(c).Grow(1).Children(func() {
-		ui.Column(c).FillWidth().MaxWidth(660).Padding(20, 24).Gap(26).Children(func() {
-			panel(c, "Browsing", func() {
-				ui.Column(c).FillWidth().Children(func() {
-					a.settingRow(c, "Show Image Thumbnails",
-						"Decode and display previews for images in grid cards.", func() {
-							ctlCheck(c, "thumbnails", &a.prefs.ShowThumbnails, "").OnChange(func() {
-								a.persistSettings()
-								if a.prefs.ShowThumbnails {
-									a.loadThumbnails(a.source().Items)
-								}
-							})
-						})
-					settingRule(c)
-					a.settingRow(c, "Confirm Before Deleting",
-						"Ask before permanently deleting objects.", func() {
-							ctlCheck(c, "confirm-delete", &a.prefs.ConfirmDelete, "").OnChange(a.persistSettings)
-						})
-					settingRule(c)
-					a.settingRow(c, "Default Share Link Expiration",
-						"How long presigned links stay accessible.", func() {
-							ttl := ttlLabel(a.prefs.PresignTTLHours)
-							sel := ctlSelect(c, "lifetime", &ttl,
-								[]string{"1 hour", "6 hours", "12 hours", "1 day", "3 days", "7 days"}, 124)
-							sel.OnChange(func() {
-								a.prefs.PresignTTLHours = map[string]int{
-									"1 hour": 1, "6 hours": 6, "12 hours": 12,
-									"1 day": 24, "3 days": 72, "7 days": 168,
-								}[ttl]
-								a.persistSettings()
-							})
-						})
-				})
-			})
-
-			panel(c, "Connections", func() {
-				ui.Column(c).FillWidth().Gap(4).Children(func() {
-					if len(a.connections) == 0 {
-						ui.Text(c, "No saved connections yet.").
-							FontSize(typeBody).
-							TextColor(t.TextMuted).
-							Padding(0, 4, 4, 4)
-					}
-					for _, p := range a.connections {
-						profile := p
-						a.connectionSettingRow(c, profile)
-					}
-					ui.Row(c).Gap(8).Children(func() {
-						if ctlButton(c, "Add Connection").Clicked() {
-							a.openConnection(nil)
+	ui.Column(c).Fill().Padding(24).Children(func() {
+		sheet := ui.Column(c).Fill().MaxWidth(820).Radius(14).
+			Background(ui.Transparent).Border(0, ui.Transparent)
+		sheet.Draw(func(p *ui.Painter, r ui.Rect) {
+			paintPlate(p, r, 14, chromeOf(t), chromeOf(t).plate, chromeOf(t).hairline)
+		})
+		sheet.Children(func() {
+			ui.Row(c).Fill().Children(func() {
+				a.settingsSidebar(c)
+				ui.Box(c).Width(1).FillHeight().Background(chromeOf(t).hairline)
+				ui.Column(c).Grow(1).FillHeight().Padding(20, 22).Children(func() {
+					ui.Scroll(c).Grow(1).Children(func() {
+						switch a.settingsPage {
+						case pageConnections:
+							a.settingsConnections(c)
+						case pageAbout:
+							a.settingsAbout(c)
+						default:
+							a.settingsPreferences(c)
 						}
 					})
 				})
 			})
+		})
+	})
+}
 
-			panel(c, "About", func() {
-				ui.Row(c).FillWidth().Gap(13).AlignItems(ui.Center).Children(func() {
-					mark := ui.Box(c).Size(46, 46).Radius(11).Center().Shrink(0).
-						Background(ui.Transparent).Border(0, ui.Transparent)
-					mark.Draw(func(p *ui.Painter, r ui.Rect) {
-						paintSurface(p, r, 11, t.Accent, ui.Transparent)
+// settingsSidebar is the list of pages, with the chosen one filled.
+func (a *App) settingsSidebar(c *ui.Context) {
+	t := c.Theme()
+	ch := chromeOf(t)
+
+	ui.Column(c).Width(190).FillHeight().Padding(10, 8).Gap(2).Children(func() {
+		ui.Text(c, "Settings").FontSize(typeSmall).TextColor(t.TextMuted).Padding(6, 10, 8, 10)
+
+		pages := []struct {
+			page  settingsPage
+			label string
+			glyph *ui.SVG
+		}{
+			{pagePreferences, "Preferences", iconSliders},
+			{pageConnections, "Connections", iconBucket},
+			{pageAbout, "About", iconInfo},
+		}
+		for _, p := range pages {
+			entry := p
+			chosen := a.settingsPage == entry.page
+			row := ui.ButtonBase(c).Key("page:"+entry.label).
+				FillWidth().Height(34).Padding(0, 10).Gap(9).Radius(8).
+				AlignItems(ui.Center).Cursor(ui.CursorPointer).
+				TextColor(t.Text).OnClick(func() { a.settingsPage = entry.page })
+			row.Label(entry.label)
+			hovered := row.Hovered()
+			if chosen {
+				row.TextColor(ch.selectedOn)
+			}
+			row.Children(func() {
+				color := t.TextMuted
+				if chosen {
+					color = ch.selectedOn
+				}
+				ui.Icon(c, entry.glyph).FontSize(15).TextColor(color).Shrink(0)
+				ui.Text(c, entry.label).FontSize(typeBody).FontWeight(weightMedium).SingleLine()
+			})
+			row.Background(ui.Transparent).Border(0, ui.Transparent).
+				Draw(func(p *ui.Painter, r ui.Rect) {
+					switch {
+					case chosen:
+						p.Fill(r, ch.selected, 8)
+					case hovered:
+						p.Fill(r, ch.hover, 8)
+					}
+				})
+		}
+	})
+}
+
+// settingsPreferences is the page of switches and choices.
+func (a *App) settingsPreferences(c *ui.Context) {
+	t := c.Theme()
+
+	ui.Column(c).FillWidth().Gap(18).Children(func() {
+		ui.Text(c, "Preferences").FontSize(typeHeadline).FontWeight(weightMedium).TextColor(t.Text)
+
+		ui.Column(c).Gap(6).Children(func() {
+			ui.Text(c, "Appearance").FontSize(typeBody).TextColor(t.TextMuted)
+			group(c, func() {
+				a.settingRow(c, "Theme", "Light or dark interface", func() {
+					track := ctlSegmentTrack(c)
+					track.Children(func() {
+						light := !a.prefs.DarkMode
+						seg := ctlSegment(c, &light, "Light")
+						seg.Width(60)
+						seg.Children(func() { ui.Text(c, "Light").FontSize(typeBody) })
+						seg.OnClick(func() { a.setDark(false) })
+
+						dark := a.prefs.DarkMode
+						seg2 := ctlSegment(c, &dark, "Dark")
+						seg2.Width(60)
+						seg2.Children(func() { ui.Text(c, "Dark").FontSize(typeBody) })
+						seg2.OnClick(func() { a.setDark(true) })
 					})
-					mark.Children(func() {
-						ui.Icon(c, iconCloud).FontSize(23).TextColor(chromeOf(t).accentOnFill)
+				})
+			})
+		})
+
+		ui.Column(c).Gap(6).Children(func() {
+			ui.Text(c, "Browsing").FontSize(typeBody).TextColor(t.TextMuted)
+			group(c, func() {
+				a.settingRow(c, "Show image thumbnails", "Decode and display pictures on grid cards.", func() {
+					ctlSwitch(c, "thumbnails", &a.prefs.ShowThumbnails, "Show image thumbnails").OnChange(func() {
+						a.persistSettings()
+						if a.prefs.ShowThumbnails {
+							a.loadThumbnails(a.source().Items)
+						}
 					})
-					ui.Column(c).Grow(1).Gap(2).Children(func() {
-						ui.Text(c, a.info.Name).
-							FontSize(typeHeadline).
-							FontWeight(weightSemi).
-							TextColor(t.Text)
-						ui.Text(c, fmt.Sprintf("Version %s · %s", a.info.Version, a.info.Platform)).
-							FontSize(typeCaption).
-							TextColor(t.TextMuted)
-						ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
-							led(c, t.Success, 5)
-							ui.Text(c, "Credentials in the System Keychain").
-								FontSize(typeCaption).
-								TextColor(t.TextMuted)
+				})
+				settingRule(c)
+				a.settingRow(c, "Confirm before deleting", "Ask before permanently deleting objects.", func() {
+					ctlSwitch(c, "confirm-delete", &a.prefs.ConfirmDelete, "Confirm before deleting").OnChange(a.persistSettings)
+				})
+				settingRule(c)
+				a.settingRow(c, "Default share link expiration", "How long presigned links stay accessible.", func() {
+					ttl := ttlLabel(a.prefs.PresignTTLHours)
+					width := float32(120)
+					btn := ctlMenuButton(c, "Expiration", ttl, a.ttlOpen, width)
+					if btn.Clicked() {
+						a.ttlOpen = !a.ttlOpen
+					}
+					ui.Popover(c, btn, &a.ttlOpen, func() {
+						ctlMenuPanel(c, 168).Children(func() {
+							ui.Column(c).Gap(1).Children(func() {
+								for _, hours := range []int{1, 6, 12, 24, 72, 168} {
+									h := hours
+									label := ttlLabel(h)
+									if menuItem(c, label, "", a.prefs.PresignTTLHours == h, "") {
+										a.ttlOpen = false
+										a.prefs.PresignTTLHours = h
+										a.persistSettings()
+									}
+								}
+							})
 						})
 					})
 				})
@@ -388,61 +505,138 @@ func (a *App) settings(c *ui.Context) {
 	})
 }
 
-// connectionSettingRow is one saved connection, with its own actions.
-func (a *App) connectionSettingRow(c *ui.Context, profile store.Profile) {
+// settingsConnections is the saved connections, each with its own
+// actions, and the way to add another.
+func (a *App) settingsConnections(c *ui.Context) {
 	t := c.Theme()
-	ch := chromeOf(t)
 
-	row := ui.Row(c).Key(profile.ID).
-		FillWidth().
-		Padding(6, 8).
-		Gap(11).
-		AlignItems(ui.Center).
-		Radius(btnRadius).
-		Background(ui.Transparent).
-		Border(0, ui.Transparent)
-	row.Draw(func(p *ui.Painter, r ui.Rect) {
-		paintSurface(p, r, btnRadius, ui.Transparent, ch.hairlineFaint)
-	})
+	ui.Column(c).FillWidth().Gap(14).Children(func() {
+		ui.Text(c, "Connections").FontSize(typeHeadline).FontWeight(weightMedium).TextColor(t.Text)
 
-	row.Children(func() {
-		monogram(c, profile.Name, 28)
+		if len(a.connections) == 0 {
+			ui.Text(c, "No saved connections yet.").FontSize(typeBody).TextColor(t.TextMuted)
+		}
 
-		ui.Column(c).Grow(1).Gap(1).Children(func() {
-			ui.Text(c, profile.Name).FontSize(typeBody).FontWeight(weightMedium).SingleLine().Ellipsis("…")
-			detail := profile.Host()
-			if profile.Bucket != "" {
-				detail += " · " + profile.Bucket
-			}
-			ui.Text(c, detail).FontSize(typeCaption).TextColor(t.TextMuted).SingleLine().Ellipsis("…")
+		for _, p := range a.connections {
+			profile := p
+			a.connectionCard(c, profile)
+		}
+
+		add := ctlButton(c, "")
+		add.Label("Add connection")
+		add.Children(func() {
+			ui.Icon(c, iconPlus).FontSize(14).TextColor(t.Text).Shrink(0)
+			ui.Text(c, "Add connection").FontSize(typeBody)
 		})
-
-		connect := ctlButton(c, "Connect")
-		if connect.Clicked() {
-			a.connect(profile.ID)
-		}
-		edit := ctlButton(c, "Edit")
-		if edit.Clicked() {
-			a.openConnection(&profile)
-		}
-		remove := ctlButton(c, "Remove")
-		if remove.Clicked() {
-			a.ask("Remove “"+profile.Name+"”?",
-				"This deletes the saved connection and its credentials from the Keychain.",
-				"Remove", func() { a.removeConnection(profile) })
+		if add.Clicked() {
+			a.openConnection(nil)
 		}
 	})
 }
 
-// settingRow is a titled preference with its control on the right. The
-// room above and below each row is what makes the list readable; the
-// hairline between them only confirms it.
+// connectionCard is one saved connection: its mark, its name, where it
+// points, and the two things that can be done to it.
+func (a *App) connectionCard(c *ui.Context, profile store.Profile) {
+	t := c.Theme()
+	active := a.session.Profile != nil && a.session.Profile.ID == profile.ID
+
+	box := card(c).FillWidth().Padding(12, 14).Gap(0)
+	box.Children(func() {
+		ui.Row(c).FillWidth().Gap(11).AlignItems(ui.Center).Children(func() {
+			monogram(c, profile.Name, 34)
+
+			ui.Column(c).Grow(1).Gap(2).Children(func() {
+				ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
+					ui.Text(c, profile.Name).FontSize(typeBody).FontWeight(weightMedium).TextColor(t.Text).SingleLine().Ellipsis("…")
+					if active {
+						ctlBadge(c, "Active", t.Success)
+					}
+				})
+				detail := profile.Host()
+				if profile.Bucket != "" {
+					detail = profile.Bucket + " · " + detail
+				}
+				ui.Text(c, detail).FontSize(typeCaption).TextColor(t.TextMuted).SingleLine().Ellipsis("…")
+			})
+
+			edit := ctlIconButtonBare(c, "Edit "+profile.Name)
+			edit.Children(func() { ui.Icon(c, iconRename).FontSize(14).TextColor(t.TextMuted) })
+			if edit.Clicked() {
+				a.openConnection(&profile)
+			}
+
+			remove := ctlIconButtonBare(c, "Remove "+profile.Name)
+			remove.Children(func() { ui.Icon(c, iconTrash).FontSize(14).TextColor(t.TextMuted) })
+			if remove.Clicked() {
+				a.ask("Remove “"+profile.Name+"”?",
+					"This deletes the saved connection and its credentials from the Keychain.",
+					"Remove", func() { a.removeConnection(profile) })
+			}
+		})
+	})
+}
+
+// settingsAbout is what the app is, and where it keeps things.
+func (a *App) settingsAbout(c *ui.Context) {
+	t := c.Theme()
+
+	ui.Column(c).FillWidth().Gap(16).Children(func() {
+		ui.Text(c, "About").FontSize(typeHeadline).FontWeight(weightMedium).TextColor(t.Text)
+
+		ui.Row(c).FillWidth().Gap(14).AlignItems(ui.Center).Children(func() {
+			iconPlate(c, iconCloud, t.Accent, 52)
+			ui.Column(c).Grow(1).Gap(2).Children(func() {
+				ui.Text(c, a.info.Name).FontSize(typeTitle).FontWeight(weightSemi).TextColor(t.Text)
+				ui.Text(c, "A native client for Cloudflare R2 and S3-compatible storage.").
+					FontSize(typeBody).
+					TextColor(t.TextMuted)
+			})
+		})
+
+		group(c, func() {
+			a.settingRow(c, "Version", "The build running on this machine.", func() {
+				ui.Text(c, a.info.Version+" · "+a.info.Platform).FontSize(typeBody).TextColor(t.TextMuted)
+			})
+			settingRule(c)
+			a.settingRow(c, "Credentials", "Access keys live in the system credential store.", func() {
+				ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
+					if a.info.SecretOK {
+						led(c, t.Success, 6)
+						ui.Text(c, "Keychain").FontSize(typeBody).TextColor(t.TextMuted)
+					} else {
+						led(c, t.Warning, 6)
+						ui.Text(c, "Unavailable").FontSize(typeBody).TextColor(t.Warning)
+					}
+				})
+			})
+			settingRule(c)
+			a.settingRow(c, "Data folder", a.info.DataDir, func() {
+				if ctlButton(c, "Show").Clicked() {
+					a.services.OpenURL("file://" + a.info.DataDir)
+				}
+			})
+		})
+	})
+}
+
+// group is the recessed plate a settings page's rows sit on.
+func group(c *ui.Context, body func()) {
+	t := c.Theme()
+	e := ui.Column(c).FillWidth().Padding(4, 14).Radius(10).
+		Background(ui.Transparent).Border(0, ui.Transparent)
+	e.Draw(func(p *ui.Painter, r ui.Rect) {
+		p.Fill(r, chromeOf(t).inset, 10)
+	})
+	e.Children(body)
+}
+
+// settingRow is a titled preference with its control on the right.
 func (a *App) settingRow(c *ui.Context, title, detail string, control func()) {
 	t := c.Theme()
-	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(16).Padding(9, 4).Children(func() {
+	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(16).Padding(9, 2).Children(func() {
 		ui.Column(c).Grow(1).Gap(1).Children(func() {
-			ui.Text(c, title).FontSize(typeBody).FontWeight(weightMedium).TextColor(t.Text)
-			ui.Text(c, detail).FontSize(typeCaption).TextColor(t.TextMuted)
+			ui.Text(c, title).FontSize(typeBody).TextColor(t.Text)
+			ui.Text(c, detail).FontSize(typeCaption).TextColor(t.TextMuted).SingleLine().Ellipsis("…")
 		})
 		control()
 	})
@@ -451,7 +645,7 @@ func (a *App) settingRow(c *ui.Context, title, detail string, control func()) {
 // settingRule is the hairline between two preferences.
 func settingRule(c *ui.Context) {
 	t := c.Theme()
-	ui.Row(c).FillWidth().Margin(0, 4).Children(func() { rule(c, 0, chromeOf(t).hairline) })
+	ui.Row(c).FillWidth().Children(func() { rule(c, 0, chromeOf(t).hairline) })
 }
 
 func (a *App) persistSettings() {
@@ -459,60 +653,99 @@ func (a *App) persistSettings() {
 	a.settingsWrites <- settings
 }
 
+// setDark switches the interface's appearance and remembers the choice.
+func (a *App) setDark(dark bool) {
+	a.prefs.DarkMode = dark
+	a.persistSettings()
+}
+
 /* -------------------------------------------------------------------------
-   Transfers Panel
+   Transfers
+
+   A dock in the bottom right corner of the content, over it rather than
+   beside it, as the reference client shows its queue.
    ------------------------------------------------------------------------- */
 
-// transfersPanel is the queue, docked under the content. It is a list of
-// work in progress, so it takes a header and rows rather than a plate.
-func (a *App) transfersPanel(c *ui.Context) {
+func (a *App) transfersDock(c *ui.Context) {
 	t := c.Theme()
 	ch := chromeOf(t)
 	transfers := a.transfers()
 
-	dock := ui.Column(c).
-		Height(210).
-		Background(ui.Transparent).
-		Border(0, ui.Transparent)
-	dock.Draw(func(p *ui.Painter, r ui.Rect) {
-		p.Fill(ui.Rect{X: r.X, Y: r.Y, W: r.W, H: 1}, ch.hairline, 0)
-		p.Fill(ui.Rect{X: r.X, Y: r.Y + 1, W: r.W, H: r.H - 1}, ch.inset, 0)
+	winW, winH := c.Size()
+	height := float32(300)
+	if len(transfers) == 0 {
+		height = 168
+	}
+
+	ui.Overlay(c, func() {
+		dock := ui.Column(c).
+			Absolute().
+			Left(winW-400).
+			Top(winH-height-20).
+			Width(380).
+			Height(height).
+			Radius(12).
+			Background(ui.Transparent).
+			Border(0, ui.Transparent)
+		dock.Draw(func(p *ui.Painter, r ui.Rect) {
+			p.Shadow(r, 12, 0, 12, 40, 0, ch.floatShadow)
+			p.Fill(r, ch.plate, 12)
+			p.Stroke(r, ch.hairline, 12, 1)
+		})
+		a.dockBody(c, dock, transfers)
 	})
+}
+
+// dockBody fills the transfers dock: its title bar, then the queue or
+// the quiet state that says there is none.
+func (a *App) dockBody(c *ui.Context, dock ui.Element, transfers []store.Transfer) {
+	t := c.Theme()
+	ch := chromeOf(t)
 
 	dock.Children(func() {
-		ui.Row(c).FillWidth().Height(30).Padding(0, 16).Gap(8).AlignItems(ui.Center).Children(func() {
-			ui.Icon(c, iconTransfer).FontSize(14).TextColor(t.Accent).Shrink(0)
-			ui.Text(c, "Transfers").FontSize(typeBody).FontWeight(weightSemi).TextColor(t.Text)
+		ui.Row(c).FillWidth().Padding(10, 12).Gap(8).AlignItems(ui.Center).Children(func() {
+			ui.Text(c, "Transfers").FontSize(typeBody).FontWeight(weightMedium).TextColor(t.Text)
 			if n := a.activeTransfers(); n > 0 {
-				ctlBadge(c, fmt.Sprintf("%d Active", n), t.Accent)
+				ctlBadge(c, formatCount(n), t.Accent)
 			}
 			ui.Spacer(c)
-
 			if len(transfers) > 0 {
-				clear := ctlButton(c, "Clear Finished")
+				clear := ctlIconButtonBare(c, "Clear finished")
+				clear.Children(func() { ui.Icon(c, iconTrash).FontSize(13).TextColor(t.TextMuted) })
 				if clear.Clicked() {
 					a.clearTransfers()
 				}
 			}
-			close := ctlIconButtonBare(c, "Close Transfers")
-			close.Children(func() { ui.Icon(c, iconClose).FontSize(12).TextColor(t.Text) })
+			close := ctlIconButtonBare(c, "Close transfers")
+			close.Children(func() {
+				ui.Icon(c, iconClose).FontSize(12).TextColor(t.TextMuted)
+			})
 			if close.Clicked() {
 				a.transfersOpen = false
 			}
 		})
 
-		ui.Row(c).FillWidth().Padding(0, 16).Children(func() { rule(c, 0, ch.hairline) })
+		if len(transfers) == 0 {
+			ui.Column(c).FillWidth().Padding(10, 20, 24, 20).Center().Gap(6).Children(func() {
+				mark := ui.Box(c).Size(38, 38).Radius(19).Center().Shrink(0).
+					Background(ui.Transparent).Border(0, ui.Transparent)
+				mark.Draw(func(p *ui.Painter, r ui.Rect) {
+					p.Fill(r, ch.inset, 19)
+				})
+				mark.Children(func() {
+					ui.Icon(c, iconTransfer).FontSize(18).TextColor(t.TextMuted)
+				})
+				ui.Text(c, "No transfers yet").FontSize(typeBody).FontWeight(weightMedium).TextColor(t.Text)
+				ui.Text(c, "Uploads and downloads will show up here.").
+					FontSize(typeCaption).
+					TextColor(t.TextMuted).
+					TextAlign(ui.Center)
+			})
+			return
+		}
 
 		ui.Scroll(c).Grow(1).Children(func() {
-			ui.Column(c).FillWidth().Padding(6, 12).Gap(3).Children(func() {
-				if len(transfers) == 0 {
-					ui.Box(c).FillWidth().Padding(24).Center().Children(func() {
-						ui.Text(c, "No transfers queued or active.").
-							FontSize(typeBody).
-							TextColor(t.TextMuted)
-					})
-					return
-				}
+			ui.Column(c).FillWidth().Padding(4, 8, 8, 8).Gap(2).Children(func() {
 				for _, tr := range transfers {
 					a.transferRow(c, tr)
 				}
@@ -521,7 +754,7 @@ func (a *App) transfersPanel(c *ui.Context) {
 	})
 }
 
-// transferRow is one transfer: where it is, how far along, and the one
+// transferRow is one transfer: what it is, how far along, and the one
 // thing that can still be done to it.
 func (a *App) transferRow(c *ui.Context, x store.Transfer) {
 	t := c.Theme()
@@ -531,38 +764,74 @@ func (a *App) transferRow(c *ui.Context, x store.Transfer) {
 		glyph, tint = iconUpload, t.Success
 	}
 
-	ui.Row(c).Key(x.ID).FillWidth().Padding(6, 8).Gap(10).AlignItems(ui.Center).
-		Radius(btnRadius).
-		Children(func() {
-			ui.Icon(c, glyph).FontSize(15).TextColor(tint).Shrink(0)
+	ui.Row(c).Key(x.ID).FillWidth().Padding(6, 6).Gap(9).AlignItems(ui.Center).
+		Radius(7).Children(func() {
+		ui.Icon(c, glyph).FontSize(14).TextColor(tint).Shrink(0)
 
-			ui.Column(c).Grow(1).Gap(3).Children(func() {
-				ui.Text(c, x.Name).FontSize(typeBody).SingleLine().Ellipsis("…")
-				ui.Row(c).Gap(5).AlignItems(ui.Center).Children(func() {
-					ui.Text(c, string(x.State)).
+		ui.Column(c).Grow(1).Gap(3).Children(func() {
+			ui.Text(c, x.Name).FontSize(typeBody).SingleLine().Ellipsis("…")
+			ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
+				ui.Text(c, transferState(x)).FontSize(typeCaption).TextColor(t.TextMuted).SingleLine()
+				if x.Size > 0 {
+					ui.Text(c, fmt.Sprintf("%s / %s", formatBytes(x.Done), formatBytes(x.Size))).
 						FontSize(typeCaption).
 						TextColor(t.TextMuted).
 						SingleLine()
-					if x.Size > 0 {
-						ui.Text(c, fmt.Sprintf("%s / %s", formatBytes(x.Done), formatBytes(x.Size))).
-							FontSize(typeCaption).
-							TextColor(t.TextMuted).
-							SingleLine()
-					}
-					if x.Error != "" {
-						ui.Text(c, x.Error).FontSize(typeCaption).TextColor(t.Danger).SingleLine().Ellipsis("…")
-					}
-				})
-				if x.Size > 0 && !x.Finished() {
-					ctlMeter(c, float64(x.Done)/float64(x.Size)).FillWidth()
+				}
+				if x.Error != "" {
+					ui.Text(c, x.Error).FontSize(typeCaption).TextColor(t.Danger).SingleLine().Ellipsis("…")
 				}
 			})
-
-			if !x.Finished() {
-				cancel := ctlButton(c, "Cancel")
-				if cancel.Clicked() {
-					a.cancelTransfer(x.ID)
-				}
+			if x.Size > 0 && !x.Finished() {
+				ctlMeter(c, float64(x.Done)/float64(x.Size)).FillWidth()
 			}
 		})
+
+		if !x.Finished() {
+			cancel := ctlIconButtonBare(c, "Cancel "+x.Name)
+			cancel.Children(func() { ui.Icon(c, iconClose).FontSize(12).TextColor(t.TextMuted) })
+			if cancel.Clicked() {
+				a.cancelTransfer(x.ID)
+			}
+		} else {
+			ui.Icon(c, transferGlyph(x)).FontSize(12).TextColor(transferTint(x, t))
+		}
+	})
+}
+
+// transferState names where a transfer stands, in words.
+func transferState(x store.Transfer) string {
+	switch x.State {
+	case store.StateQueued:
+		return "Waiting"
+	case store.StateRunning:
+		return "Transferring"
+	case store.StateDone:
+		return "Done"
+	case store.StateFailed:
+		return "Failed"
+	case store.StateCanceled:
+		return "Canceled"
+	}
+	return string(x.State)
+}
+
+func transferGlyph(x store.Transfer) *ui.SVG {
+	switch x.State {
+	case store.StateDone:
+		return iconCheck
+	case store.StateFailed, store.StateCanceled:
+		return iconAlert
+	}
+	return iconClock
+}
+
+func transferTint(x store.Transfer, t *ui.Theme) ui.Color {
+	switch x.State {
+	case store.StateDone:
+		return t.Success
+	case store.StateFailed, store.StateCanceled:
+		return t.Danger
+	}
+	return t.TextMuted
 }

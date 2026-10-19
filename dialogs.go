@@ -15,9 +15,9 @@ func (a *App) dialogs(c *ui.Context) {
 	case dialogConnection:
 		a.connectionDialog(c)
 	case dialogNewFolder:
-		a.textDialog(c, "New Folder", "Folder name", "photos", a.makeFolder)
+		a.textDialog(c, "New folder", "Name", "photos", "Create", a.makeFolder)
 	case dialogNewBucket:
-		a.textDialog(c, "New Bucket", "Bucket name", "my-media-bucket", a.makeBucket)
+		a.textDialog(c, "New bucket", "Name", "my-media-bucket", "Create", a.makeBucket)
 	case dialogRename:
 		a.renameDialog(c)
 	case dialogMove:
@@ -45,16 +45,23 @@ func (a *App) confirmDialog(c *ui.Context) {
 	}
 
 	open := a.confirm.open
-	chosen := -1
+	chosen := false
 
-	ctlDialog(c, &open, 360, func() {
+	ctlDialog(c, &open, 380, func() {
 		ui.Column(c).FillWidth().Gap(16).Children(func() {
 			ui.Row(c).FillWidth().Gap(12).AlignItems(ui.Start).Children(func() {
-				ui.Icon(c, iconAlert).FontSize(20).TextColor(t.Danger).Shrink(0).Margin(0, 2)
+				mark := ui.Box(c).Size(34, 34).Radius(10).Center().Shrink(0).
+					Background(ui.Transparent).Border(0, ui.Transparent)
+				mark.Draw(func(p *ui.Painter, r ui.Rect) {
+					p.Fill(r, t.Danger.Alpha(0.12), 10)
+				})
+				mark.Children(func() {
+					ui.Icon(c, iconAlert).FontSize(17).TextColor(t.Danger)
+				})
 				ui.Column(c).Grow(1).Gap(4).Children(func() {
 					ui.Text(c, a.confirm.title).
 						FontSize(typeHeadline).
-						FontWeight(weightSemi).
+						FontWeight(weightMedium).
 						TextColor(t.Text)
 					ui.Text(c, a.confirm.message).
 						FontSize(typeBody).
@@ -68,14 +75,14 @@ func (a *App) confirmDialog(c *ui.Context) {
 				}
 				remove := ctlDanger(c, buttonLabel)
 				if remove.Clicked() {
-					chosen = 1
+					chosen = true
 				}
 			})
 		})
 	})
 
 	a.confirm.open = open
-	if chosen == 1 {
+	if chosen {
 		a.confirm.open = false
 		action := a.confirm.action
 		a.confirm.action = nil
@@ -110,20 +117,22 @@ func (a *App) openMove() {
 	a.dlg = dialogMove
 }
 
-func (a *App) textDialog(c *ui.Context, title, label, placeholder string, accept func(string)) {
+func (a *App) textDialog(c *ui.Context, title, label, placeholder, action string, accept func(string)) {
 	t := c.Theme()
 	open := true
 	submitted := false
 
-	ctlDialog(c, &open, 380, func() {
+	ctlDialog(c, &open, 400, func() {
 		ui.Column(c).FillWidth().Gap(16).Children(func() {
 			ui.Text(c, title).
 				FontSize(typeHeadline).
-				FontWeight(weightSemi).
+				FontWeight(weightMedium).
 				TextColor(t.Text)
 
-			ui.Field(c, label, func() {
-				field := ui.TextInput(c.Key("name"), &a.input).Placeholder(placeholder).AutoFocus()
+			ui.Column(c).Gap(6).Children(func() {
+				ui.Text(c, label).FontSize(typeBody).TextColor(t.TextMuted)
+				field := ui.TextInputBase(c.Key("name"), &a.input).
+					Placeholder(placeholder).FontSize(typeBody).AutoFocus()
 				submitted = field.Submitted()
 				ctlField(c, field).FillWidth()
 			})
@@ -133,7 +142,7 @@ func (a *App) textDialog(c *ui.Context, title, label, placeholder string, accept
 				if cancel.Clicked() {
 					a.dlg = dialogNone
 				}
-				done := ctlPrimary(c, "Create")
+				done := ctlPrimary(c, action)
 				if submitted || done.Clicked() {
 					if strings.TrimSpace(a.input) != "" {
 						accept(a.input)
@@ -150,7 +159,7 @@ func (a *App) textDialog(c *ui.Context, title, label, placeholder string, accept
 
 func (a *App) renameDialog(c *ui.Context) {
 	key := a.dest
-	a.textDialog(c, "Rename", "New name", "Enter new name", func(name string) {
+	a.textDialog(c, "Rename", "New name", "Enter a new name", "Rename", func(name string) {
 		a.rename(key, name)
 	})
 }
@@ -161,21 +170,23 @@ func (a *App) moveDialog(c *ui.Context) {
 
 	ctlDialog(c, &open, 440, func() {
 		ui.Column(c).FillWidth().Gap(14).Children(func() {
-			ui.Text(c, "Move "+plural(a.sel.Len(), "Item", "Item")).
+			ui.Text(c, "Move "+plural(a.sel.Len(), "item", "items")).
 				FontSize(typeHeadline).
-				FontWeight(weightSemi).
+				FontWeight(weightMedium).
 				TextColor(t.Text)
-			ui.Text(c, "Enter a folder in "+a.bucket+". Leave it empty for the bucket root; folders are created as needed.").
+			ui.Text(c, "Enter a folder in “"+a.bucket+"”. Leave it empty for the bucket root; folders are created as needed.").
 				FontSize(typeBody).
 				TextColor(t.TextMuted)
 
-			ui.Field(c, "Destination", func() {
-				field := ui.TextInput(c.Key("dest"), &a.dest).Placeholder("documents/archives/").AutoFocus()
+			ui.Column(c).Gap(6).Children(func() {
+				ui.Text(c, "Destination").FontSize(typeBody).TextColor(t.TextMuted)
+				field := ui.TextInputBase(c.Key("dest"), &a.dest).
+					Placeholder("documents/archives/").FontSize(typeBody).AutoFocus()
 				ctlField(c, field).FillWidth()
 			})
 
 			if folders := a.movableFolders(); len(folders) > 0 {
-				menuHeading(c, "Folders")
+				ui.Text(c, "Folders").FontSize(typeCaption).TextColor(t.TextMuted)
 				ui.Column(c).FillWidth().Gap(1).Children(func() {
 					for _, folder := range folders {
 						prefix := folder
@@ -223,92 +234,92 @@ func (a *App) movableFolders() []string {
 func (a *App) connectionDialog(c *ui.Context) {
 	t := c.Theme()
 	open := true
-	title := "New Connection"
+	title := "Add a connection"
 	if a.conn.editing {
-		title = "Edit Connection"
+		title = "Edit connection"
 	}
 
 	labels := a.providerLabels()
 	chosen := a.providerLabel()
 
-	ctlDialog(c, &open, 520, func() {
+	ctlDialog(c, &open, 560, func() {
 		ui.Column(c).FillWidth().Gap(16).Children(func() {
-			ui.Text(c, title).
-				FontSize(typeHeadline).
-				FontWeight(weightSemi).
-				TextColor(t.Text)
+			ui.Column(c).Gap(4).Children(func() {
+				ui.Text(c, title).
+					FontSize(typeTitle).
+					FontWeight(weightSemi).
+					TextColor(t.Text)
+				ui.Text(c, "Connect Cloudflare R2 with an access key, or configure any S3-compatible bucket.").
+					FontSize(typeBody).
+					TextColor(t.TextMuted)
+			})
 
-			ui.Scroll(c).MaxHeight(430).Children(func() {
+			ui.Scroll(c).MaxHeight(440).Children(func() {
 				ui.Column(c).FillWidth().Gap(14).Children(func() {
-					// The service, as a pop-up rather than a shelf of
-					// seven keys: it is one choice out of a list, and
-					// the list is longer than the shelf.
-					ui.Form(c, func() {
-						ui.Field(c, "Service", func() {
-							sel := ctlSelect(c, "provider", &chosen, labels, 220)
-							sel.Label("Service")
-							if sel.Changed() {
-								a.applyProvider(chosen)
-							}
+					ui.Column(c).Gap(6).Children(func() {
+						ui.Row(c).FillWidth().AlignItems(ui.Center).Children(func() {
+							ui.Text(c, "Provider").FontSize(typeBody).TextColor(t.Text).Grow(1)
 						})
-
-						ui.Field(c, "Name", func() {
-							ctlField(c, ui.TextInput(c.Key("name"), &a.conn.name).
-								Placeholder("Cloudflare R2 Production")).FillWidth()
+						btn := ctlMenuButton(c, "Provider", chosen, a.providerOpen, 240)
+						if btn.Clicked() {
+							a.providerOpen = !a.providerOpen
+						}
+						ui.Popover(c, btn, &a.providerOpen, func() {
+							ctlMenuPanel(c, 240).Children(func() {
+								ui.Column(c).Gap(1).Children(func() {
+									for _, label := range labels {
+										l := label
+										if menuItem(c, l, "", a.providerLabel() == l, "") {
+											a.providerOpen = false
+											a.applyProvider(l)
+										}
+									}
+								})
+							})
 						})
-						ui.Field(c, "Endpoint URL", func() {
-							ctlField(c, ui.TextInput(c.Key("endpoint"), &a.conn.endpoint).
-								Placeholder("https://<account-id>.r2.cloudflarestorage.com")).FillWidth()
-						})
-						ui.Field(c, "Bucket", func() {
-							ctlField(c, ui.TextInput(c.Key("bucket"), &a.conn.bucket).
-								Placeholder("All buckets the key can reach")).FillWidth()
-						}).Description("Only needed for a key scoped to one bucket.")
-						ui.Field(c, "Region", func() {
-							ctlField(c, ui.TextInput(c.Key("region"), &a.conn.region).
-								Placeholder("auto")).FillWidth()
-						}).Description("Use auto for R2, or us-east-1 for AWS and MinIO.")
-						ui.Field(c, "Access Key ID", func() {
-							ctlField(c, ui.TextInput(c.Key("access"), &a.conn.accessKey).
-								Placeholder("Access key ID")).FillWidth()
-						})
-						ui.Field(c, "Secret Access Key", func() {
-							ctlField(c, ui.TextInput(c.Key("secret"), &a.conn.secretKey).Password().
-								Placeholder(secretPlaceholder(a.conn))).FillWidth()
-						}).Description(secretDescription(a.conn))
 					})
 
-					ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-						ctlSwitch(c, "pathstyle", &a.conn.pathStyle, "").
-							Tooltip("Required by MinIO and some S3-compatible gateways")
-						ui.Text(c, "Use path-style requests").FontSize(typeBody)
+					a.formField(c, "Connection name", "", "Personal R2", &a.conn.name, false)
+					a.formField(c, "S3 API endpoint", "from the bucket settings", "https://<account>.r2.cloudflarestorage.com", &a.conn.endpoint, false)
+
+					ui.Row(c).FillWidth().Gap(10).Children(func() {
+						ui.Column(c).Grow(1).Children(func() {
+							a.formField(c, "Bucket", "", "my-bucket", &a.conn.bucket, false)
+						})
+						ui.Column(c).Width(120).Children(func() {
+							a.formField(c, "Region", "usually auto", "auto", &a.conn.region, false)
+						})
+					})
+
+					a.formField(c, "Access Key ID", "", "", &a.conn.accessKey, false)
+					a.formField(c, "Secret Access Key", secretHint(a.conn), secretPlaceholder(a.conn), &a.conn.secretKey, true)
+
+					ui.Row(c).FillWidth().Gap(9).AlignItems(ui.Center).Children(func() {
+						ctlSwitch(c, "pathstyle", &a.conn.pathStyle, "Path-style requests")
+						ui.Text(c, "Use path-style requests").FontSize(typeBody).TextColor(t.Text)
 					})
 
 					if a.conn.err != "" {
-						statusBanner(c, t.Danger.Alpha(0.09), iconAlert, a.conn.err, t.Text, t.Danger)
+						statusBanner(c, t.Danger.Alpha(0.08), iconAlert, a.conn.err, t.Text, t.Danger)
 					}
 					if result := a.conn.result; result != nil {
 						if result.OK {
 							took := fmt.Sprintf("· %d ms", result.Took.Milliseconds())
-							statusBanner(c, t.Success.Alpha(0.09), iconCheck,
+							statusBanner(c, t.Success.Alpha(0.08), iconCheck,
 								result.Message+" "+took, t.Text, t.Success)
 						} else {
-							statusBanner(c, t.Danger.Alpha(0.09), iconAlert,
+							statusBanner(c, t.Danger.Alpha(0.08), iconAlert,
 								result.Message, t.Text, t.Danger)
 						}
 					}
 				})
 			})
 
-			ui.Row(c).FillWidth().Padding(0, 2).Children(func() {
-				rule(c, 0, chromeOf(t).hairline)
-			})
+			ui.Row(c).FillWidth().Children(func() { rule(c, 0, t.Border) })
 
 			ui.Row(c).FillWidth().Gap(8).AlignItems(ui.Center).Children(func() {
 				if a.conn.busy {
-					ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
-						ui.Spinner(c).Label("Working")
-					})
+					ui.Spinner(c).Label("Working")
 				}
 				ui.Spacer(c)
 
@@ -329,11 +340,11 @@ func (a *App) connectionDialog(c *ui.Context) {
 				if cancel.Clicked() {
 					a.dlg = dialogNone
 				}
-				test := ctlButton(c, "Test Connection").Disabled(a.conn.busy)
+				test := ctlButton(c, "Test connection").Disabled(a.conn.busy)
 				if test.Clicked() {
 					a.testConnection()
 				}
-				save := ctlPrimary(c, "Save & Connect").Disabled(a.conn.busy)
+				save := ctlPrimary(c, "Save & connect").Disabled(a.conn.busy)
 				if save.Clicked() || (!a.conn.busy && c.Shortcut(ui.Cmd, ui.KeyEnter)) {
 					a.saveConnection()
 				}
@@ -346,19 +357,30 @@ func (a *App) connectionDialog(c *ui.Context) {
 	}
 }
 
-// statusBanner is the one-line result of trying something.
-func statusBanner(c *ui.Context, wash ui.Color, glyph *ui.SVG, message string, textColor, glyphColor ui.Color) {
-	row := ui.Row(c).
-		FillWidth().
-		Padding(7, 10).
-		Radius(btnRadius).
-		Gap(8).
-		AlignItems(ui.Start).
-		Background(wash).
-		Border(0, ui.Transparent)
-	row.Children(func() {
-		ui.Icon(c, glyph).FontSize(14).TextColor(glyphColor).Shrink(0).Margin(0, 1)
-		ui.Text(c, message).FontSize(typeCaption).Grow(1).TextColor(textColor)
+// formField is one labelled field of the connection form. The label
+// belongs to the field, so a click on it puts the caret in.
+func (a *App) formField(c *ui.Context, label, hint, placeholder string, value *string, secret bool) {
+	t := c.Theme()
+	ui.Column(c).Gap(6).Children(func() {
+		if hint != "" {
+			ui.Row(c).FillWidth().AlignItems(ui.Center).Children(func() {
+				ui.Text(c, label).FontSize(typeBody).TextColor(t.Text).Grow(1)
+				ui.Text(c, hint).FontSize(typeCaption).TextColor(t.TextMuted)
+			})
+			field := ui.TextInputBase(c.Key(label), value).Placeholder(placeholder).FontSize(typeBody)
+			if secret {
+				field.Password()
+			}
+			ctlField(c, field).FillWidth()
+			return
+		}
+		ui.Field(c, label, func() {
+			field := ui.TextInputBase(c.Key(label), value).Placeholder(placeholder).FontSize(typeBody)
+			if secret {
+				field.Password()
+			}
+			ctlField(c, field).FillWidth()
+		})
 	})
 }
 
@@ -402,27 +424,18 @@ func (a *App) applyProvider(label string) {
 	}
 }
 
-func (a *App) providerNote() string {
-	for _, preset := range a.svc.Providers() {
-		if string(preset.ID) == a.conn.provider {
-			return preset.Note
-		}
-	}
-	return ""
-}
-
 func secretPlaceholder(form connForm) string {
 	if form.editing {
 		return "Leave empty to keep the saved key"
 	}
-	return "Secret access key"
+	return ""
 }
 
-func secretDescription(form connForm) string {
+func secretHint(form connForm) string {
 	if form.editing {
-		return "A new key replaces the saved one in the Keychain."
+		return "a new key replaces the saved one"
 	}
-	return "Stored in the System Keychain, encrypted by hardware."
+	return "stored in your system keychain"
 }
 
 /* -------------------------------------------------------------------------
@@ -454,35 +467,40 @@ func (a *App) shareDialog(c *ui.Context) {
 	t := c.Theme()
 	open := true
 
-	ctlDialog(c, &open, 520, func() {
+	ctlDialog(c, &open, 540, func() {
 		ui.Column(c).FillWidth().Gap(14).Children(func() {
 			ui.Text(c, "Share “"+baseName(a.share.key)+"”").
 				FontSize(typeHeadline).
-				FontWeight(weightSemi).
+				FontWeight(weightMedium).
 				TextColor(t.Text)
-			ui.Text(c, "A presigned link gives temporary read access straight from the S3 endpoint, with no sign-in.").
+			ui.Text(c, "A presigned link gives temporary read access straight from the endpoint, with no sign-in.").
 				FontSize(typeBody).
 				TextColor(t.TextMuted)
 
 			ui.Row(c).FillWidth().Gap(10).AlignItems(ui.Center).Children(func() {
-				ui.Text(c, "Expires In").
+				ui.Text(c, "Expires in").
 					FontSize(typeBody).
 					TextColor(t.TextMuted).
 					Grow(1)
 
-				hours := []string{"1 hour", "6 hours", "12 hours", "1 day", "3 days", "7 days"}
-				values := []int{1, 6, 12, 24, 72, 168}
-				current := ttlLabel(a.share.hours)
-				sel := ctlSelect(c, "ttl", &current, hours, 124)
-				sel.Label("Expiration")
-				if sel.Changed() {
-					for i, label := range hours {
-						if label == current {
-							a.shareLink(a.share.key, values[i])
-							break
-						}
-					}
+				label := ttlLabel(a.share.hours)
+				btn := ctlMenuButton(c, "Expiration", label, a.shareOpen, 130)
+				if btn.Clicked() {
+					a.shareOpen = !a.shareOpen
 				}
+				ui.Popover(c, btn, &a.shareOpen, func() {
+					ctlMenuPanel(c, 168).Children(func() {
+						ui.Column(c).Gap(1).Children(func() {
+							for _, hours := range []int{1, 6, 12, 24, 72, 168} {
+								h := hours
+								if menuItem(c, ttlLabel(h), "", a.share.hours == h, "") {
+									a.shareOpen = false
+									a.shareLink(a.share.key, h)
+								}
+							}
+						})
+					})
+				})
 
 				if a.share.busy {
 					ui.Spinner(c).Label("Generating link")
@@ -490,12 +508,12 @@ func (a *App) shareDialog(c *ui.Context) {
 			})
 
 			if a.share.err != "" {
-				statusBanner(c, t.Danger.Alpha(0.09), iconAlert, a.share.err, t.Text, t.Danger)
+				statusBanner(c, t.Danger.Alpha(0.08), iconAlert, a.share.err, t.Text, t.Danger)
 			}
 
 			if a.share.url != "" {
 				ui.Row(c).FillWidth().Gap(8).AlignItems(ui.Center).Children(func() {
-					link := ui.TextInput(c.Key("url"), &a.share.url).ReadOnly(true).Label("Link")
+					link := ui.TextInputBase(c.Key("url"), &a.share.url).ReadOnly(true).FontSize(typeBody)
 					ctlField(c, link).Grow(1)
 
 					copy := ctlButton(c, "Copy")
@@ -543,68 +561,117 @@ func ttlLabel(hours int) string {
 }
 
 /* -------------------------------------------------------------------------
-   Object Detail Dialog
+   Preview
+
+   One sheet: the object's name and its actions on a bar, the preview
+   itself on a recessed plate, and its facts in a footer. Nothing is
+   asked for that the app cannot answer.
    ------------------------------------------------------------------------- */
 
 func (a *App) detailDialog(c *ui.Context) {
 	t := c.Theme()
+	ch := chromeOf(t)
 	open := true
+	_, winH := c.Size()
 
-	ctlDialog(c, &open, 580, func() {
-		ui.Column(c).MaxHeight(560).FillWidth().Gap(14).Children(func() {
-			ui.Row(c).FillWidth().Gap(10).AlignItems(ui.Center).Children(func() {
-				ui.Icon(c, entryIcon(store.Entry{Key: a.detail.key, Name: baseName(a.detail.key)})).
-					FontSize(19).
-					TextColor(kindTint(t, kindOf(a.detail.key, false)))
-				ui.Text(c, baseName(a.detail.key)).
-					FontSize(typeHeadline).
-					FontWeight(weightSemi).
+	name := baseName(a.detail.key)
+
+	ui.DialogBase(c, &open, func(back, panel ui.Element) {
+		back.Background(ch.scrim)
+		winW, _ := c.Size()
+		panel.Width(min(760, winW-64)).MaxHeight(winH - 60).Radius(16).Padding(0)
+		panel = panel.Background(ui.Transparent).Border(0, ui.Transparent)
+		panel.Draw(func(p *ui.Painter, r ui.Rect) {
+			p.Shadow(r, 16, 0, 24, 70, 0, ch.floatShadow)
+			p.Fill(r, ch.plate, 16)
+		})
+
+		ui.Column(c).FillWidth().Gap(0).Children(func() {
+			// The title bar of the sheet: the mark, the name, and what
+			// can be done to it.
+			ui.Row(c).FillWidth().Height(52).Padding(0, 16).Gap(10).
+				AlignItems(ui.Center).Children(func() {
+				a.cellMark(c, store.Entry{Key: a.detail.key, Name: name}, kindOf(a.detail.key, false), 26)
+
+				ui.Text(c, name).
+					FontSize(typeBody).
+					FontWeight(weightMedium).
+					TextColor(t.Text).
 					Grow(1).
 					SingleLine().
 					Ellipsis("…")
-				if a.detail.busy {
-					ui.Spinner(c).Label("Loading")
+
+				link := ctlIconButtonBare(c, "Copy link")
+				link.Children(func() { ui.Icon(c, iconLink).FontSize(15).TextColor(t.TextMuted) })
+				if link.Clicked() {
+					a.copyLink(a.detail.key)
 				}
-			})
 
-			if a.detail.err != "" {
-				statusBanner(c, t.Danger.Alpha(0.09), iconAlert, a.detail.err, t.Text, t.Danger)
-			}
-
-			a.preview(c)
-
-			ui.Column(c).FillWidth().Gap(5).Children(func() {
-				a.detailRow(c, "Kind", kindLabel(kindOf(a.detail.key, false), a.detail.key))
-				a.detailRow(c, "Size", formatBytes(a.detail.info.Size))
-				a.detailRow(c, "Modified", formatDate(a.detail.info.LastModified))
-				a.detailRow(c, "Storage Class", a.detail.info.StorageClass)
-				a.detailRow(c, "Content Type", a.detail.info.ContentType)
-				a.detailRow(c, "ETag", strings.Trim(a.detail.info.ETag, `"`))
-				a.detailRow(c, "Key", a.detail.key)
-			})
-
-			ui.Row(c).FillWidth().Padding(0, 2).Children(func() {
-				rule(c, 0, chromeOf(t).hairline)
-			})
-
-			ui.Row(c).FillWidth().Gap(8).AlignItems(ui.Center).Children(func() {
-				ui.Spacer(c)
-				copy := ctlButton(c, "Copy Key")
-				if copy.Clicked() {
-					a.copyText(a.detail.key, "Object key copied")
-				}
-				browse := ctlButton(c, "Open in Browser")
-				if browse.Clicked() {
+				openIn := ctlIconButtonBare(c, "Open in browser")
+				openIn.Children(func() { ui.Icon(c, iconExternal).FontSize(15).TextColor(t.TextMuted) })
+				if openIn.Clicked() {
 					a.openInBrowser(a.detail.key)
 				}
-				saveAs := ctlButton(c, "Save As…")
-				if saveAs.Clicked() {
+
+				save := ctlIconButtonBare(c, "Download")
+				save.Children(func() { ui.Icon(c, iconDownload).FontSize(15).TextColor(t.TextMuted) })
+				if save.Clicked() {
+					a.chooseOnly(a.detail.key)
 					a.saveAs(a.detail.key)
 				}
-				done := ctlPrimary(c, "Done")
-				if done.Clicked() {
+
+				ui.Box(c).Width(1).Height(20).Shrink(0).Background(t.Border)
+
+				closeBtn := ctlIconButtonBare(c, "Close preview")
+				closeBtn.Children(func() {
+					ui.Box(c).Size(22, 22).Radius(11).Center().Background(ui.Transparent).
+						Children(func() {
+							ui.Icon(c, iconClose).FontSize(12).TextColor(t.TextMuted)
+						})
+				})
+				if closeBtn.Clicked() {
 					a.dlg = dialogNone
 				}
+			})
+
+			// The preview itself, on a recessed plate with room around it.
+			preview := ui.Box(c).FillWidth().Height(max(240, winH-330)).Margin(0, 16).
+				Radius(10).Clip().Center().Background(ui.Transparent).Border(0, ui.Transparent)
+			preview.Draw(func(p *ui.Painter, r ui.Rect) {
+				p.Fill(r, ch.inset, 10)
+			})
+			preview.Children(func() {
+				a.preview(c)
+			})
+
+			// The facts, in one line under it.
+			ui.Row(c).FillWidth().Padding(14, 18).Gap(20).AlignItems(ui.Center).Children(func() {
+				ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
+					ui.Text(c, "Type").FontSize(typeCaption).TextColor(t.TextMuted)
+					ctlChip(c, typeChip(store.Entry{Key: a.detail.key}), t.TextMuted)
+				})
+				ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
+					ui.Text(c, "Size").FontSize(typeCaption).TextColor(t.TextMuted)
+					ui.Text(c, formatBytes(a.detail.info.Size)).FontSize(typeBody).TextColor(t.Text)
+				})
+				ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
+					ui.Text(c, "Modified").FontSize(typeCaption).TextColor(t.TextMuted)
+					ui.Text(c, formatDate(a.detail.info.LastModified)).FontSize(typeBody).TextColor(t.Text)
+				})
+				ui.Spacer(c)
+				ui.Row(c).Gap(6).AlignItems(ui.Center).Shrink(1).Children(func() {
+					ui.Text(c, "Key").FontSize(typeCaption).TextColor(t.TextMuted)
+					ui.Text(c, a.detail.key).
+						FontSize(typeCaption).
+						TextColor(t.Text).
+						SingleLine().
+						Ellipsis("…")
+					copy := ctlIconButtonBare(c, "Copy key")
+					copy.Children(func() { ui.Icon(c, iconCopy).FontSize(12).TextColor(t.TextMuted) })
+					if copy.Clicked() {
+						a.copyText(a.detail.key, "Object key copied")
+					}
+				})
 			})
 		})
 	})
@@ -614,66 +681,59 @@ func (a *App) detailDialog(c *ui.Context) {
 	}
 }
 
-// detailRow is one fact about the object, its name set to a fixed width
-// so the values line up under each other.
-func (a *App) detailRow(c *ui.Context, label, value string) {
-	if value == "" || value == "—" {
-		return
-	}
-	t := c.Theme()
-	ui.Row(c).FillWidth().Gap(14).Children(func() {
-		ui.Text(c, label).
-			Width(110).
-			FontSize(typeCaption).
-			TextColor(t.TextMuted).
-			SingleLine()
-		ui.Text(c, value).FontSize(typeBody).Grow(1).SingleLine().Ellipsis("…")
-	})
-}
-
-// preview shows what the app can draw of the object, and says so
-// plainly when it cannot draw anything.
+// preview shows what the app can draw of the object, and says so plainly
+// when it cannot draw anything.
 func (a *App) preview(c *ui.Context) {
 	t := c.Theme()
-	ch := chromeOf(t)
-
-	screen := func(height float32) ui.Element {
-		box := ui.Box(c).FillWidth().Height(height).Radius(btnRadius).Clip().Center().
-			Background(ui.Transparent).Border(0, ui.Transparent)
-		box.Draw(func(p *ui.Painter, r ui.Rect) {
-			paintSurface(p, r, btnRadius, ch.inset, ui.Transparent)
-		})
-		return box
-	}
 
 	switch {
+	case a.detail.busy:
+		ui.Column(c).Gap(8).AlignItems(ui.Center).Children(func() {
+			ui.Spinner(c).Label("Loading preview")
+		})
+	case a.detail.err != "":
+		ui.Column(c).Gap(8).Center().Children(func() {
+			ui.Icon(c, iconAlert).FontSize(28).TextColor(t.Danger)
+			ui.Text(c, a.detail.err).FontSize(typeBody).TextColor(t.TextMuted).TextAlign(ui.Center).MaxWidth(420)
+		})
 	case a.detail.img != nil:
-		screen(240).Children(func() {
-			ui.Image(c, a.detail.img).Fit(ui.Contain).Grow(1)
-		})
+		ui.Image(c, a.detail.img).Fit(ui.Contain).Fill().Padding(12)
 	case a.detail.text != nil && a.detail.text.Binary:
-		screen(64).Children(func() {
-			ui.Text(c, "This file holds data the app cannot draw.").
-				FontSize(typeBody).
-				TextColor(t.TextMuted)
-		})
+		a.noPreview(c, "This file holds data the app cannot draw.")
 	case a.detail.text != nil:
 		text := a.detail.text.Text
 		if a.detail.text.Truncated {
 			text += "\n\n… [preview truncated at 1 MB] …"
 		}
-		screen(210).Children(func() {
-			ui.ScrollBoth(c).Padding(10).Children(func() {
-				ui.Text(c, text).FontSize(typeCaption).Font("monospace")
-			})
+		ui.ScrollBoth(c).Fill().Padding(14).Children(func() {
+			ui.Text(c, text).FontSize(typeCaption).Font("monospace")
 		})
-	case !a.detail.busy && a.detail.err == "":
-		screen(64).Children(func() {
-			ui.Text(c, "No preview for this format. Open it in the browser, or save it.").
-				FontSize(typeBody).
-				TextColor(t.TextMuted)
-		})
+	default:
+		a.noPreview(c, "No inline preview for this file type.")
 	}
+}
+
+// noPreview is the quiet state of a file the app cannot draw: a mark and
+// one line saying so.
+func (a *App) noPreview(c *ui.Context, message string) {
+	t := c.Theme()
+
+	ui.Column(c).Gap(10).AlignItems(ui.Center).Children(func() {
+		mark := ui.Box(c).Size(56, 56).Radius(14).Center().Shrink(0).
+			Background(ui.Transparent).Border(0, ui.Transparent)
+		mark.Draw(func(p *ui.Painter, r ui.Rect) {
+			p.Fill(r, chromeOf(t).plate, 14)
+			p.Stroke(r, t.Border, 14, 1)
+		})
+		mark.Children(func() {
+			ui.Icon(c, iconOther).FontSize(26).TextColor(t.TextMuted)
+		})
+		ui.Text(c, message).
+			FontSize(typeBody).
+			TextColor(t.TextMuted).
+			TextAlign(ui.Center).
+			MaxWidth(380)
+	})
 }
 
 func baseName(key string) string {
