@@ -150,11 +150,7 @@ func (a *App) settingsCLI(c *ui.Context) {
 	t := c.Theme()
 
 	ui.Column(c).FillWidth().Gap(18).Children(func() {
-		ui.Text(c, "Command line").FontSize(typeHeadline).FontWeight(weightMedium).TextColor(t.Text)
-		ui.Text(c, "Bucketeer installs a small terminal tool and a skill, so you and your coding agents can work on the same buckets without leaving the editor.").
-			FontSize(typeBody).
-			TextColor(t.TextMuted).
-			MaxWidth(560)
+		settingsHeader(c, "Command line", "A terminal tool and a skill for coding agents, working on the buckets this app already knows.")
 
 		if a.cli.Err != "" {
 			statusBanner(c, t.Danger.Alpha(0.08), iconAlert, a.cli.Err, t.Text, t.Danger)

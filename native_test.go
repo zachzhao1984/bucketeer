@@ -556,3 +556,99 @@ func TestNativeCommandLineInstall(t *testing.T) {
 		t.Fatal("remove kept the skill")
 	}
 }
+
+// TestSettingsSidebarAlignsLeft pins the layout the settings sheet needs:
+// every row puts its glyph in the same slot and its label on the same left
+// edge, so the list reads as one column. It measures the rows' ink, so a
+// row that centres its contents, or whose glyphs are different widths,
+// fails it.
+func TestSettingsSidebarAlignsLeft(t *testing.T) {
+	a := nativeTestApp(t)
+	a.section = sectionSettings
+	a.settingsPage = pagePreferences
+	tester := ui.NewTester(a.view, 1180, 820)
+	tester.SetTitleBar(ui.TitleBar{Height: 52, Left: 79})
+	tester.Frame()
+
+	// The labels' first ink, per row. Rows only, so no page title matches.
+	// glyphCenter is the middle of the glyph's ink: the slot it occupies is
+	// the same for every row, though the shapes' own ink starts and ends
+	// differently.
+	type edges struct{ glyphCenter, label int }
+	var rows []edges
+	for _, name := range []string{"Connections", "Command line", "About"} {
+		row, ok := tester.Find(name)
+		if !ok {
+			t.Fatalf("%q is missing from the settings sidebar", name)
+		}
+		img := tester.Image()
+		y := int(row.Y + row.H/2)
+		var runs [][2]int
+		inRun, start := false, 0
+		for x := int(row.X); x < int(row.X+row.W); x++ {
+			p := img.RGBAAt(x, y)
+			ink := p.R < 210 || p.G < 210 || p.B < 210
+			if ink && !inRun {
+				inRun, start = true, x
+			}
+			if !ink && inRun {
+				inRun = false
+				runs = append(runs, [2]int{start, x - 1})
+			}
+		}
+		if len(runs) < 3 {
+			t.Fatalf("%q drew %d ink runs; it should draw a glyph and a label", name, len(runs))
+		}
+		// The glyph is the first run; the label begins where the gap after
+		// it ends and the ink starts again, which is the run after next.
+		glyphMiddle := (runs[0][0] + runs[0][1]) / 2
+		rows = append(rows, edges{glyphCenter: glyphMiddle, label: runs[1][0]})
+	}
+
+	for i, r := range rows {
+		if i == 0 {
+			continue
+		}
+		if d := r.glyphCenter - rows[0].glyphCenter; d > 2 || d < -2 {
+			t.Errorf("row %d centres its glyph at x=%d, but the first row centres it at %d", i, r.glyphCenter, rows[0].glyphCenter)
+		}
+		// The label follows the glyph in the same gap: its start may differ
+		// by the width of the glyph's own ink, but not by a centring shift.
+		if d := r.label - rows[0].label; d > 8 || d < -8 {
+			t.Errorf("row %d starts its label at x=%d, while the first row starts at %d", i, r.label, rows[0].label)
+		}
+	}
+	// The glyph sits against the row's left edge, not centred in it.
+	row, _ := tester.Find("About")
+	if inset := rows[0].glyphCenter - int(row.X); inset > 24 {
+		t.Errorf("the glyph starts %d points in from the row's left edge, so the row is centred", inset)
+	}
+}
+
+// TestSettingsPageTitles checks the settings pages all open with a title,
+// and that the window's own title follows the page.
+func TestSettingsPageTitles(t *testing.T) {
+	a := nativeTestApp(t)
+	a.section = sectionSettings
+	tester := ui.NewTester(a.view, 1180, 820)
+	tester.SetTitleBar(ui.TitleBar{Height: 52, Left: 79})
+
+	for _, page := range []struct {
+		page  settingsPage
+		title string
+	}{
+		{pagePreferences, "Preferences"},
+		{pageConnections, "Connections"},
+		{pageCLI, "Command line"},
+		{pageAbout, "About"},
+	} {
+		a.settingsPage = page.page
+		tester.Frame()
+		if !tester.HasText(page.title) {
+			t.Errorf("the %s page has no title", page.title)
+		}
+		if got := a.sectionTitle(); got != page.title {
+			t.Errorf("the window title says %q on the %s page, want %q", got, page.title, page.title)
+		}
+	}
+}

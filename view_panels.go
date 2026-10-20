@@ -408,7 +408,7 @@ func (a *App) settingsSidebar(c *ui.Context) {
 			chosen := a.settingsPage == entry.page
 			row := ui.ButtonBase(c).Key("page:"+entry.label).
 				FillWidth().Height(34).Padding(0, 10).Gap(9).Radius(8).
-				AlignItems(ui.Center).Cursor(ui.CursorPointer).
+				AlignItems(ui.Center).Justify(ui.Start).Cursor(ui.CursorPointer).
 				TextColor(t.Text).OnClick(func() {
 				if a.settingsPage == entry.page {
 					return
@@ -430,8 +430,13 @@ func (a *App) settingsSidebar(c *ui.Context) {
 				if chosen {
 					color = ch.selectedOn
 				}
-				ui.Icon(c, entry.glyph).FontSize(15).TextColor(color).Shrink(0)
-				ui.Text(c, entry.label).FontSize(typeBody).FontWeight(weightMedium).SingleLine()
+				// A fixed slot keeps every label on the same left edge,
+				// whatever the glyph's own width is.
+				slot := ui.Box(c).Width(18).Shrink(0).Center()
+				slot.Children(func() {
+					ui.Icon(c, entry.glyph).FontSize(15).TextColor(color)
+				})
+				ui.Text(c, entry.label).FontSize(typeBody).FontWeight(weightMedium).Grow(1).SingleLine().Ellipsis("…")
 			})
 			row.Background(ui.Transparent).Border(0, ui.Transparent).
 				Draw(func(p *ui.Painter, r ui.Rect) {
@@ -446,12 +451,42 @@ func (a *App) settingsSidebar(c *ui.Context) {
 	})
 }
 
+// settingsPageTitle is the name of the settings page that is open, for the
+// window's path.
+func (a *App) settingsPageTitle() string {
+	switch a.settingsPage {
+	case pageConnections:
+		return "Connections"
+	case pageCLI:
+		return "Command line"
+	case pageAbout:
+		return "About"
+	}
+	return "Preferences"
+}
+
+// settingsHeader opens a settings page: its title, and the line that says
+// what the page is for. Every page starts with it so the titles share one
+// size, one weight and one place.
+func settingsHeader(c *ui.Context, title, detail string) {
+	t := c.Theme()
+	ui.Column(c).FillWidth().Gap(3).Children(func() {
+		ui.Text(c, title).FontSize(typeHeadline).FontWeight(weightMedium).TextColor(t.Text)
+		if detail != "" {
+			ui.Text(c, detail).
+				FontSize(typeBody).
+				TextColor(t.TextMuted).
+				MaxWidth(560)
+		}
+	})
+}
+
 // settingsPreferences is the page of switches and choices.
 func (a *App) settingsPreferences(c *ui.Context) {
 	t := c.Theme()
 
 	ui.Column(c).FillWidth().Gap(18).Children(func() {
-		ui.Text(c, "Preferences").FontSize(typeHeadline).FontWeight(weightMedium).TextColor(t.Text)
+		settingsHeader(c, "Preferences", "Appearance, browsing and sharing.")
 
 		ui.Column(c).Gap(6).Children(func() {
 			ui.Text(c, "Appearance").FontSize(typeBody).TextColor(t.TextMuted)
@@ -525,7 +560,7 @@ func (a *App) settingsConnections(c *ui.Context) {
 	t := c.Theme()
 
 	ui.Column(c).FillWidth().Gap(14).Children(func() {
-		ui.Text(c, "Connections").FontSize(typeHeadline).FontWeight(weightMedium).TextColor(t.Text)
+		settingsHeader(c, "Connections", "The storage accounts this app can browse, with their keys kept in the system credential store.")
 
 		if len(a.connections) == 0 {
 			ui.Text(c, "No saved connections yet.").FontSize(typeBody).TextColor(t.TextMuted)
@@ -538,6 +573,9 @@ func (a *App) settingsConnections(c *ui.Context) {
 
 		add := ctlButton(c, "")
 		add.Label("Add connection")
+		// The plate spans the page, with its mark and label on the same
+		// left edge as the cards above it.
+		add.FillWidth().Justify(ui.Start)
 		add.Children(func() {
 			ui.Icon(c, iconPlus).FontSize(14).TextColor(t.Text).Shrink(0)
 			ui.Text(c, "Add connection").FontSize(typeBody)
@@ -595,7 +633,7 @@ func (a *App) settingsAbout(c *ui.Context) {
 	t := c.Theme()
 
 	ui.Column(c).FillWidth().Gap(16).Children(func() {
-		ui.Text(c, "About").FontSize(typeHeadline).FontWeight(weightMedium).TextColor(t.Text)
+		settingsHeader(c, "About", "")
 
 		ui.Row(c).FillWidth().Gap(14).AlignItems(ui.Center).Children(func() {
 			iconPlate(c, iconCloud, t.Accent, 52)
@@ -647,7 +685,7 @@ func group(c *ui.Context, body func()) {
 // settingRow is a titled preference with its control on the right.
 func (a *App) settingRow(c *ui.Context, title, detail string, control func()) {
 	t := c.Theme()
-	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(16).Padding(9, 2).Children(func() {
+	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(16).Padding(10, 2).Children(func() {
 		ui.Column(c).Grow(1).Gap(1).Children(func() {
 			ui.Text(c, title).FontSize(typeBody).TextColor(t.Text)
 			ui.Text(c, detail).FontSize(typeCaption).TextColor(t.TextMuted).SingleLine().Ellipsis("…")
@@ -656,10 +694,14 @@ func (a *App) settingRow(c *ui.Context, title, detail string, control func()) {
 	})
 }
 
-// settingRule is the hairline between two preferences.
+// settingRule is the hairline between two preferences. It runs the width of
+// the group and keeps clear of its rounded ends, and is quiet enough to
+// separate rows without drawing attention to itself.
 func settingRule(c *ui.Context) {
 	t := c.Theme()
-	ui.Row(c).FillWidth().Children(func() { rule(c, 0, chromeOf(t).hairline) })
+	ui.Row(c).FillWidth().Children(func() {
+		rule(c, 12, chromeOf(t).hairline)
+	})
 }
 
 func (a *App) persistSettings() {

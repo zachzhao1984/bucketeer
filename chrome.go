@@ -311,8 +311,8 @@ func navRow(c *ui.Context, id, label string, glyph *ui.SVG, chosen bool, extra f
 	t := c.Theme()
 	ch := chromeOf(t)
 
-	row := ui.ButtonBase(c).Key(id).Cursor(ui.CursorPointer).AlignItems(ui.Center).Gap(10).
-		Padding(0, 10).Radius(8).Shrink(0).Height(34)
+	row := ui.ButtonBase(c).Key(id).Cursor(ui.CursorPointer).AlignItems(ui.Center).Justify(ui.Start).Gap(10).
+		FillWidth().Padding(0, 10).Radius(8).Shrink(0).Height(34)
 	row.Label(label)
 	if onChoose != nil {
 		row.OnClick(onChoose)
@@ -329,7 +329,12 @@ func navRow(c *ui.Context, id, label string, glyph *ui.SVG, chosen bool, extra f
 			if chosen {
 				color = ch.selectedOn
 			}
-			ui.Icon(c, glyph).FontSize(16).TextColor(color).Shrink(0)
+			// One slot of the same width for every glyph keeps the labels of a
+			// list on a single left edge.
+			slot := ui.Box(c).Width(19).Shrink(0).Center()
+			slot.Children(func() {
+				ui.Icon(c, glyph).FontSize(16).TextColor(color)
+			})
 		}
 		ui.Text(c, label).FontSize(typeBody).FontWeight(weightMedium).Grow(1).SingleLine().Ellipsis("…")
 		if extra != nil {

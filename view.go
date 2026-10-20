@@ -939,7 +939,9 @@ func (a *App) selectionActions(c *ui.Context) {
 func (a *App) sectionTitle() string {
 	switch {
 	case a.section == sectionSettings:
-		return "Settings"
+		// The path reads "Settings › Preferences", so the sheet shows
+		// which settings page is open rather than the section again.
+		return a.settingsPageTitle()
 	case a.section == sectionRecent:
 		return "Recent files"
 	case a.section == sectionDashboard && a.session.Connected:
