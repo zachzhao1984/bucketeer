@@ -481,7 +481,11 @@ func (a *App) saveConnection() {
 // the fields a connection cannot do without.
 func (a *App) connInput() (store.Input, bool) {
 	form := &a.conn
-	if strings.TrimSpace(form.endpoint) == "" {
+	endpoint := strings.TrimSpace(form.endpoint)
+	if endpoint == "" {
+		endpoint = a.preset().EndpointFor(strings.TrimSpace(form.region))
+	}
+	if endpoint == "" {
 		form.err = "Enter the endpoint, as s3.example.com."
 		return store.Input{}, false
 	}
@@ -493,15 +497,11 @@ func (a *App) connInput() (store.Input, bool) {
 		form.err = "Enter the secret access key."
 		return store.Input{}, false
 	}
-	if form.endpoint == "" {
-		form.err = "Enter the endpoint."
-		return store.Input{}, false
-	}
 	form.err = ""
 	return store.Input{
 		Name:        form.name,
 		Provider:    form.provider,
-		Endpoint:    form.endpoint,
+		Endpoint:    endpoint,
 		Region:      form.region,
 		Bucket:      form.bucket,
 		AccessKeyID: form.accessKey,

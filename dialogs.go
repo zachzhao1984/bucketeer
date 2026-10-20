@@ -241,7 +241,9 @@ func (a *App) connectionDialog(c *ui.Context) {
 
 	labels := a.providerLabels()
 	chosen := a.providerLabel()
+	preset := a.preset()
 
+	_, windowHeight := c.Size()
 	ctlDialog(c, &open, 560, func() {
 		ui.Column(c).FillWidth().Gap(16).Children(func() {
 			ui.Column(c).Gap(4).Children(func() {
@@ -249,23 +251,20 @@ func (a *App) connectionDialog(c *ui.Context) {
 					FontSize(typeTitle).
 					FontWeight(weightSemi).
 					TextColor(t.Text)
-				ui.Text(c, "Connect Cloudflare R2 with an access key, or configure any S3-compatible bucket.").
+				ui.Text(c, "Connect an S3-compatible storage service with an access key.").
 					FontSize(typeBody).
 					TextColor(t.TextMuted)
 			})
 
-			ui.Scroll(c).MaxHeight(440).Children(func() {
+			ui.Scroll(c).MaxHeight(min(float32(500), windowHeight-200)).Children(func() {
 				ui.Column(c).FillWidth().Gap(14).Children(func() {
-					ui.Column(c).Gap(6).Children(func() {
-						ui.Row(c).FillWidth().AlignItems(ui.Center).Children(func() {
-							ui.Text(c, "Provider").FontSize(typeBody).TextColor(t.Text).Grow(1)
-						})
-						btn := ctlMenuButton(c, "Provider", chosen, a.providerOpen, 240)
+					ui.Field(c, "Provider", func() {
+						btn := ctlMenuButton(c, "Choose provider", chosen, a.providerOpen, 240)
 						if btn.Clicked() {
 							a.providerOpen = !a.providerOpen
 						}
 						ui.Popover(c, btn, &a.providerOpen, func() {
-							ctlMenuPanel(c, 240).Children(func() {
+							ctlMenuPanel(c, 280).Children(func() {
 								ui.Column(c).Gap(1).Children(func() {
 									for _, label := range labels {
 										l := label
@@ -279,20 +278,33 @@ func (a *App) connectionDialog(c *ui.Context) {
 						})
 					})
 
-					a.formField(c, "Connection name", "", "Personal R2", &a.conn.name, false)
-					a.formField(c, "S3 API endpoint", "from the bucket settings", "https://<account>.r2.cloudflarestorage.com", &a.conn.endpoint, false)
+					a.formField(c, "Connection name", "", preset.Label, &a.conn.name, false)
+					a.formField(c, "S3 API endpoint", endpointHint(preset), a.conn.endpointOr(preset), &a.conn.endpoint, false)
 
 					ui.Row(c).FillWidth().Gap(10).Children(func() {
 						ui.Column(c).Grow(1).Children(func() {
 							a.formField(c, "Bucket", "", "my-bucket", &a.conn.bucket, false)
 						})
-						ui.Column(c).Width(120).Children(func() {
-							a.formField(c, "Region", "usually auto", "auto", &a.conn.region, false)
+						ui.Column(c).Width(150).Children(func() {
+							a.formField(c, "Region", preset.RegionHint, preset.Region, &a.conn.region, false)
 						})
 					})
 
-					a.formField(c, "Access Key ID", "", "", &a.conn.accessKey, false)
+					a.formField(c, "Access Key ID", keyHint(preset.ID), "", &a.conn.accessKey, false)
 					a.formField(c, "Secret Access Key", secretHint(a.conn), secretPlaceholder(a.conn), &a.conn.secretKey, true)
+
+					// What the chosen service wants, in its own words: it
+					// is the only place the app explains how to get the
+					// endpoint and the key right.
+					if preset.Note != "" {
+						ui.Row(c).FillWidth().Gap(8).AlignItems(ui.Start).Children(func() {
+							ui.Icon(c, iconInfo).FontSize(13).TextColor(t.TextMuted).Shrink(0).Margin(1, 0)
+							ui.Text(c, preset.Note).
+								FontSize(typeCaption).
+								TextColor(t.TextMuted).
+								Grow(1)
+						})
+					}
 
 					ui.Row(c).FillWidth().Gap(9).AlignItems(ui.Center).Children(func() {
 						ctlSwitch(c, "pathstyle", &a.conn.pathStyle, "Path-style requests")
@@ -384,6 +396,37 @@ func (a *App) formField(c *ui.Context, label, hint, placeholder string, value *s
 	})
 }
 
+// preset is the chosen provider's defaults, and the hints the form shows.
+func (a *App) preset() store.Preset {
+	if p, ok := store.PresetFor(store.Provider(a.conn.provider)); ok {
+		return p
+	}
+	return store.Presets[0]
+}
+
+// endpointHint says where the endpoint comes from, for a provider whose
+// host is fixed and for one whose host carries the region.
+func endpointHint(preset store.Preset) string {
+	if strings.Contains(preset.EndpointHint, "<") {
+		return "from the service's dashboard"
+	}
+	return "from the bucket's settings"
+}
+
+// keyHint names the access key the way the service does, so a person can
+// find the right one in its console.
+func keyHint(p store.Provider) string {
+	switch p {
+	case store.ProviderCOS:
+		return "SecretId"
+	case store.ProviderB2:
+		return "keyID"
+	case store.ProviderOSS:
+		return "AccessKey ID of a RAM user"
+	}
+	return ""
+}
+
 // providerLabels lists the services a new connection can be to.
 func (a *App) providerLabels() []string {
 	providers := a.svc.Providers()
@@ -396,15 +439,7 @@ func (a *App) providerLabels() []string {
 
 // providerLabel is the service the form is filled in for.
 func (a *App) providerLabel() string {
-	for _, p := range a.svc.Providers() {
-		if string(p.ID) == a.conn.provider {
-			return p.Label
-		}
-	}
-	if len(a.svc.Providers()) > 0 {
-		return a.svc.Providers()[0].Label
-	}
-	return ""
+	return a.preset().Label
 }
 
 // applyProvider fills the form from a service's own defaults.
@@ -414,7 +449,13 @@ func (a *App) applyProvider(label string) {
 			continue
 		}
 		a.conn.provider = string(preset.ID)
-		a.conn.endpoint = preset.Endpoint
+		// Region-based endpoints stay empty until the connection is tested
+		// or saved. The placeholder follows region edits; a typed endpoint
+		// remains a manual override.
+		a.conn.endpoint = ""
+		if preset.EndpointPattern == "" {
+			a.conn.endpoint = preset.EndpointHint
+		}
 		a.conn.region = preset.Region
 		a.conn.pathStyle = preset.PathStyle
 		if a.conn.name == "" {

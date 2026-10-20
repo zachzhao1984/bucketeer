@@ -188,6 +188,18 @@ type connForm struct {
 	err       string
 }
 
+// endpointOr is what the endpoint field shows: the one the form holds, or
+// the one the provider's pattern makes from the region it holds.
+func (f connForm) endpointOr(preset store.Preset) string {
+	if f.endpoint != "" {
+		return f.endpoint
+	}
+	if derived := preset.EndpointFor(f.region); derived != "" {
+		return derived
+	}
+	return preset.EndpointHint
+}
+
 // shareState is the link the share dialog made.
 type shareState struct {
 	key   string

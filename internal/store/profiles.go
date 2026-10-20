@@ -23,28 +23,48 @@ import (
 // Provider names an S3-compatible storage service.
 type Provider string
 
-// The providers the app has presets for.
+// The providers the app has presets for, in the order the connection
+// form lists them: the services the reference client offers, each with
+// the endpoint and region its own documentation gives.
 const (
 	ProviderR2     Provider = "r2"
 	ProviderAWS    Provider = "aws"
-	ProviderMinIO  Provider = "minio"
 	ProviderB2     Provider = "b2"
 	ProviderWasabi Provider = "wasabi"
-	ProviderSpaces Provider = "spaces"
+	ProviderMinIO  Provider = "minio"
+	ProviderOSS    Provider = "oss"
+	ProviderCOS    Provider = "cos"
+	ProviderSpaces Provider = "spaces" // kept for saved connections created before this menu changed
 	ProviderOther  Provider = "other"
 )
 
 // Preset is a provider's default connection settings, and the hints the
 // connection form shows beside them.
 type Preset struct {
-	ID           Provider `json:"id"`
-	Label        string   `json:"label"`
-	Endpoint     string   `json:"endpoint"`
-	EndpointHint string   `json:"endpointHint"`
-	Region       string   `json:"region"`
-	RegionHint   string   `json:"regionHint"`
-	PathStyle    bool     `json:"pathStyle"`
-	Note         string   `json:"note"`
+	ID    Provider `json:"id"`
+	Label string   `json:"label"`
+	// EndpointHint is what the endpoint field shows while it is empty: a
+	// real host for the services whose host is fixed, or a template in
+	// angle brackets when it carries the account.
+	EndpointHint string `json:"endpointHint"`
+	Region       string `json:"region"`
+	RegionHint   string `json:"regionHint"`
+	// EndpointPattern, when set, derives the endpoint from the region:
+	// "{region}" is replaced by the region the form holds. The services
+	// whose host carries their region work this way, so a person who
+	// knows only the region gets a working endpoint.
+	EndpointPattern string `json:"endpointPattern,omitempty"`
+	PathStyle       bool   `json:"pathStyle"`
+	Note            string `json:"note"`
+}
+
+// EndpointFor returns the endpoint a preset's pattern makes for a region,
+// or "" when the preset has no pattern.
+func (p Preset) EndpointFor(region string) string {
+	if p.EndpointPattern == "" || region == "" {
+		return ""
+	}
+	return strings.ReplaceAll(p.EndpointPattern, "{region}", region)
 }
 
 // Presets are the providers the app offers, in menu order.
@@ -54,55 +74,82 @@ var Presets = []Preset{
 		Label:        "Cloudflare R2",
 		EndpointHint: "https://<account-id>.r2.cloudflarestorage.com",
 		Region:       "auto",
-		Note:         "Create an S3 API token in the R2 dashboard; region is auto. For bucket-scoped tokens, enter the Bucket below.",
+		Note:         "Create an S3 API token in the R2 dashboard; the region is auto. For a bucket-scoped token, enter the bucket below.",
 	},
 	{
-		ID:           ProviderAWS,
-		Label:        "Amazon S3",
-		EndpointHint: "s3.us-east-1.amazonaws.com",
-		Region:       "us-east-1",
-		Note:         "Leave the endpoint empty to reach the bucket's own region.",
+		ID:              ProviderAWS,
+		Label:           "Amazon S3",
+		EndpointHint:    "https://s3.us-east-1.amazonaws.com",
+		EndpointPattern: "https://s3.{region}.amazonaws.com",
+		Region:          "us-east-1",
+		RegionHint:      "as in us-east-1, eu-west-2",
+		Note:            "An IAM user's access key works. The region above is the bucket's own, and the endpoint follows it.",
+	},
+	{
+		ID:              ProviderB2,
+		Label:           "Backblaze B2",
+		EndpointHint:    "https://s3.us-west-004.backblazeb2.com",
+		EndpointPattern: "https://s3.{region}.backblazeb2.com",
+		Region:          "us-west-004",
+		RegionHint:      "as in us-west-004",
+		Note:            "Both the endpoint and the region are on the bucket's B2 details page, under its S3-compatible address.",
+	},
+	{
+		ID:              ProviderWasabi,
+		Label:           "Wasabi",
+		EndpointHint:    "https://s3.us-east-1.wasabisys.com",
+		EndpointPattern: "https://s3.{region}.wasabisys.com",
+		Region:          "us-east-1",
+		RegionHint:      "as in us-east-1, eu-central-1",
+		Note:            "The region is the one in the endpoint's host name; Wasabi's keys are plain access and secret keys.",
 	},
 	{
 		ID:           ProviderMinIO,
 		Label:        "MinIO",
 		EndpointHint: "http://localhost:9000",
 		Region:       "us-east-1",
+		Note:         "Self-hosted MinIO answers path-style requests, so the path-style switch below is already on.",
 		PathStyle:    true,
-		Note:         "Self-hosted MinIO answers path-style requests.",
 	},
 	{
-		ID:           ProviderB2,
-		Label:        "Backblaze B2",
-		EndpointHint: "https://s3.us-west-004.backblazeb2.com",
-		Region:       "us-west-004",
-		Note:         "The endpoint and region come from the bucket's B2 details.",
+		ID:              ProviderOSS,
+		Label:           "Alibaba Cloud OSS",
+		EndpointHint:    "https://s3.oss-cn-hangzhou.aliyuncs.com",
+		EndpointPattern: "https://s3.{region}.aliyuncs.com",
+		Region:          "oss-cn-hangzhou",
+		RegionHint:      "as in oss-cn-hangzhou",
+		Note:            "Use the S3-compatible endpoint, s3.oss-{region}.aliyuncs.com; the region keeps its oss- prefix. A RAM user's access key works.",
 	},
 	{
-		ID:           ProviderWasabi,
-		Label:        "Wasabi",
-		EndpointHint: "https://s3.us-east-1.wasabisys.com",
-		Region:       "us-east-1",
-		Note:         "Match the region in the endpoint's host name.",
-	},
-	{
-		ID:           ProviderSpaces,
-		Label:        "DigitalOcean Spaces",
-		EndpointHint: "https://nyc3.digitaloceanspaces.com",
-		Region:       "nyc3",
-		Note:         "The region is the endpoint's first label, as in nyc3.",
+		ID:              ProviderCOS,
+		Label:           "Tencent Cloud COS",
+		EndpointHint:    "https://cos.ap-guangzhou.myqcloud.com",
+		EndpointPattern: "https://cos.{region}.myqcloud.com",
+		Region:          "ap-guangzhou",
+		RegionHint:      "as in ap-guangzhou",
+		Note:            "The region is the bucket's, as in ap-guangzhou, and the endpoint follows it. Use a CAM user's SecretId and SecretKey; include the APPID suffix in the bucket name.",
 	},
 	{
 		ID:           ProviderOther,
 		Label:        "Other S3-compatible",
 		EndpointHint: "https://storage.example.com",
 		Region:       "us-east-1",
-		Note:         "Any endpoint that speaks the S3 API.",
+		Note:         "Any endpoint that speaks the S3 API. Turn on path-style requests if the service asks for them.",
 	},
+}
+
+// Old Spaces connections remain editable, but Spaces is no longer a menu item.
+var legacySpacesPreset = Preset{
+	ID: ProviderSpaces, Label: "DigitalOcean Spaces",
+	EndpointHint: "https://nyc3.digitaloceanspaces.com", Region: "nyc3",
+	Note: "The region is the endpoint's first label, as in nyc3.",
 }
 
 // PresetFor returns the preset of provider, and whether one exists.
 func PresetFor(p Provider) (Preset, bool) {
+	if p == ProviderSpaces {
+		return legacySpacesPreset, true
+	}
 	if i := slices.IndexFunc(Presets, func(preset Preset) bool { return preset.ID == p }); i >= 0 {
 		return Presets[i], true
 	}
@@ -325,11 +372,18 @@ func (in Input) normalize() Input {
 		preset = Presets[len(Presets)-1]
 		in.Provider = string(preset.ID)
 	}
-	if in.Endpoint == "" && !strings.Contains(preset.EndpointHint, "<") {
-		in.Endpoint = preset.EndpointHint
-	}
 	if in.Region == "" {
 		in.Region = preset.Region
+	}
+	if in.Endpoint == "" {
+		// The services whose host carries the region make the endpoint
+		// from it; the others have one fixed host, or a template the
+		// person fills in because it carries their account.
+		if derived := preset.EndpointFor(in.Region); derived != "" {
+			in.Endpoint = derived
+		} else if !strings.Contains(preset.EndpointHint, "<") {
+			in.Endpoint = preset.EndpointHint
+		}
 	}
 	return in
 }

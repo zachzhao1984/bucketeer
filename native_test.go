@@ -59,6 +59,62 @@ func TestNativeNavigationAndConnectionForm(t *testing.T) {
 	}
 }
 
+func TestNativeProviderSelectionAndEndpoint(t *testing.T) {
+	a := nativeTestApp(t)
+	a.openConnection(nil)
+	tester := ui.NewTester(a.view, 1180, 760)
+	tester.SetTitleBar(ui.TitleBar{Height: 52, Left: 79})
+	tester.Frame()
+	if err := tester.Click("Choose provider"); err != nil {
+		t.Fatal(err)
+	}
+	tester.Frame()
+	for _, preset := range store.Presets {
+		if !tester.HasText(preset.Label) {
+			t.Fatalf("missing provider %q in menu", preset.Label)
+		}
+	}
+	if err := tester.Click("Tencent Cloud COS"); err != nil {
+		t.Fatal(err)
+	}
+	tester.Frame()
+	if a.conn.provider != string(store.ProviderCOS) || a.conn.endpoint != "" {
+		t.Fatalf("COS selection: provider=%q endpoint=%q", a.conn.provider, a.conn.endpoint)
+	}
+	a.conn.name = "Beijing"
+	a.conn.region = "ap-beijing"
+	a.conn.accessKey = "AKIDEXAMPLE"
+	a.conn.secretKey = "secret"
+	tester.Frame()
+	if !tester.HasText(a.preset().Note) {
+		t.Fatal("COS instructions missing")
+	}
+	in, ok := a.connInput()
+	if !ok || in.Endpoint != "https://cos.ap-beijing.myqcloud.com" || a.conn.endpoint != "" {
+		t.Fatalf("derived endpoint=%q, ok=%v", in.Endpoint, ok)
+	}
+	a.conn.endpoint = "https://custom.example.com"
+	in, ok = a.connInput()
+	if !ok || in.Endpoint != a.conn.endpoint {
+		t.Fatalf("manual endpoint=%q, ok=%v", in.Endpoint, ok)
+	}
+
+	// Saved Spaces profiles can still be opened and edited after the menu
+	// changes. They retain their original provider and endpoint.
+	p := store.Profile{ID: "old", Name: "Spaces", Provider: store.ProviderSpaces,
+		Endpoint: "https://sfo3.digitaloceanspaces.com", Region: "sfo3"}
+	a.openConnection(&p)
+	tester.Frame()
+	if a.providerLabel() != "DigitalOcean Spaces" || a.conn.endpoint != p.Endpoint {
+		t.Fatalf("existing Spaces profile: provider=%q endpoint=%q", a.conn.provider, a.conn.endpoint)
+	}
+	tester.SetSize(900, 560)
+	tester.Frame()
+	if r, found := tester.Find("Save & connect"); !found || r.Y+r.H > 560 {
+		t.Fatalf("connection actions are offscreen at the smallest window: found=%v bounds=%+v", found, r)
+	}
+}
+
 func TestNativeViews(t *testing.T) {
 	a := nativeTestApp(t)
 	p := store.Profile{ID: "demo", Name: "Acme Media", Endpoint: "https://s3.example.com"}

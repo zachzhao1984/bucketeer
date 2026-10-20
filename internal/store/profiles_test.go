@@ -374,6 +374,113 @@ func TestSecretKeyIsUniquePerProfile(t *testing.T) {
 	}
 }
 
+// TestPresetsAreTheOfferedServices pins the list the connection form
+// shows, in its order, and the endpoint each pattern makes.
+func TestPresetsAreTheOfferedServices(t *testing.T) {
+	want := []struct {
+		id    Provider
+		label string
+	}{
+		{ProviderR2, "Cloudflare R2"},
+		{ProviderAWS, "Amazon S3"},
+		{ProviderB2, "Backblaze B2"},
+		{ProviderWasabi, "Wasabi"},
+		{ProviderMinIO, "MinIO"},
+		{ProviderOSS, "Alibaba Cloud OSS"},
+		{ProviderCOS, "Tencent Cloud COS"},
+		{ProviderOther, "Other S3-compatible"},
+	}
+	if len(Presets) != len(want) {
+		t.Fatalf("%d presets, want %d", len(Presets), len(want))
+	}
+	for i, w := range want {
+		if Presets[i].ID != w.id || Presets[i].Label != w.label {
+			t.Errorf("preset %d = %q (%q), want %q (%q)", i, Presets[i].Label, Presets[i].ID, w.label, w.id)
+		}
+	}
+}
+
+// TestPresetEndpoints pins what each service's own documentation says the
+// endpoint and region look like.
+func TestPresetEndpoints(t *testing.T) {
+	cases := []struct {
+		provider Provider
+		region   string
+		endpoint string
+	}{
+		{ProviderAWS, "eu-west-2", "https://s3.eu-west-2.amazonaws.com"},
+		{ProviderB2, "us-west-004", "https://s3.us-west-004.backblazeb2.com"},
+		{ProviderWasabi, "eu-central-1", "https://s3.eu-central-1.wasabisys.com"},
+		{ProviderOSS, "oss-cn-hangzhou", "https://s3.oss-cn-hangzhou.aliyuncs.com"},
+		{ProviderCOS, "ap-guangzhou", "https://cos.ap-guangzhou.myqcloud.com"},
+	}
+	for _, c := range cases {
+		preset, ok := PresetFor(c.provider)
+		if !ok {
+			t.Fatalf("no preset for %q", c.provider)
+		}
+		if got := preset.EndpointFor(c.region); got != c.endpoint {
+			t.Errorf("%s in %s = %q, want %q", c.provider, c.region, got, c.endpoint)
+		}
+		// The default region must make the default endpoint, or the form
+		// would show one and save another.
+		if got := preset.EndpointFor(preset.Region); got != preset.EndpointHint {
+			t.Errorf("%s default endpoint = %q, want its hint %q", c.provider, got, preset.EndpointHint)
+		}
+	}
+	// The services whose host carries the account have no pattern: their
+	// endpoint is typed, not derived.
+	for _, p := range []Provider{ProviderR2, ProviderMinIO, ProviderOther} {
+		preset, _ := PresetFor(p)
+		if preset.EndpointPattern != "" {
+			t.Errorf("%q should have no endpoint pattern", p)
+		}
+	}
+}
+
+// TestCreateDerivesTheEndpointFromTheRegion checks that a person who types
+// only a region gets a working endpoint, which is what the form promises
+// for the services whose host carries it.
+func TestCreateDerivesTheEndpointFromTheRegion(t *testing.T) {
+	store, _, _ := newTestStore(t)
+	profile, err := store.Create(Input{
+		Name:        "Tencent",
+		Provider:    string(ProviderCOS),
+		Region:      "ap-beijing",
+		AccessKeyID: "AKIDEXAMPLE",
+		SecretKey:   "secret",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "https://cos.ap-beijing.myqcloud.com"; profile.Endpoint != want {
+		t.Errorf("endpoint = %q, want %q", profile.Endpoint, want)
+	}
+}
+
+func TestLegacySpacesProfileRemainsEditable(t *testing.T) {
+	profiles, _, _ := newTestStore(t)
+	original, err := profiles.Create(Input{
+		Name: "Old Spaces", Provider: string(ProviderSpaces),
+		Endpoint: "https://sfo3.digitaloceanspaces.com", Region: "sfo3",
+		AccessKeyID: "example", SecretKey: "secret",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	updated, err := profiles.Update(original.ID, Input{
+		Name: "Renamed Spaces", Provider: string(original.Provider),
+		Endpoint: original.Endpoint, Region: original.Region,
+		AccessKeyID: original.AccessKeyID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.Provider != ProviderSpaces || updated.Endpoint != original.Endpoint || updated.Region != original.Region {
+		t.Fatalf("legacy connection changed: provider=%q endpoint=%q region=%q", updated.Provider, updated.Endpoint, updated.Region)
+	}
+}
+
 func TestPresetForEveryProvider(t *testing.T) {
 	for _, preset := range Presets {
 		got, ok := PresetFor(preset.ID)
