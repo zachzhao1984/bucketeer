@@ -7,22 +7,58 @@ No web view, no TypeScript, no Node/Bun runtime dependencies.
 Browse buckets like folders, upload and download with live progress, preview
 files, measure storage, and share them with expiring links.
 
-Works with Cloudflare R2, Amazon S3, MinIO, Backblaze B2, Wasabi,
-DigitalOcean Spaces, and any other endpoint that speaks the S3 API.
+Works with Cloudflare R2, Amazon S3, MinIO, Backblaze B2, Wasabi, Alibaba
+Cloud OSS, Tencent Cloud COS, DigitalOcean Spaces, and any other endpoint
+that speaks the S3 API.
+
+## Download
+
+Releases carry a universal macOS disk image and a Windows installer:
+
+- **macOS 12 or later**, Apple silicon and Intel: `Bucketeer <version>.dmg`
+- **Windows 10 or later**: `Bucketeer Setup <version> amd64.exe`, which
+  installs for the current user, with no administrator prompt
 
 ## Building and Running
 
-The project is pure Go. Only Go 1.24+ and the MyGo CLI are required.
+The project is pure Go. Only Go 1.27+ and the MyGo CLI are required.
 
 ```sh
 # Run locally in development
 go run .
 
-# Package native macOS app and DMG
+# Package the app for this platform: a .app and a .dmg on macOS, an .exe and
+# an NSIS installer on Windows
 go run github.com/egoist/mygo/cmd/mygo@v0.5.5 build
+
+# Both macOS architectures in one bundle
+go run github.com/egoist/mygo/cmd/mygo@v0.5.5 build -platform darwin/universal
 ```
 
-This builds a standalone binary of about 12.3 MB (and a 3.9 MB DMG) in `build/darwin-arm64/`.
+## Releasing
+
+`.github/workflows/release.yml` builds and publishes the app. Push a tag that
+matches the version in `mygo.json`:
+
+```sh
+# bump "version" in mygo.json and add its section to CHANGELOG.md, commit, then
+git tag v0.1.1 && git push origin v0.1.1
+```
+
+The workflow runs the tests, builds a universal macOS disk image on
+`macos-14` and a Windows installer on `windows-latest`, smoke-tests each
+installer's payload, and attaches the files to a GitHub release of the tag.
+A manual run (`workflow_dispatch`) builds the same artifacts without
+publishing, so a dry run is free.
+
+Signing is optional, and comes from repository secrets:
+
+| Secret | What it does |
+| --- | --- |
+| `MACOS_CERTIFICATE`, `MACOS_CERTIFICATE_PASSWORD` | A base64 Developer ID `.p12`, and its password. Without it the app is ad hoc signed, which runs on the machine that built it only. |
+| `MACOS_SIGNING_IDENTITY` | The identity to sign with, as `Developer ID Application: Name (TEAMID)`. |
+| `MACOS_NOTARY_APPLE_ID`, `MACOS_NOTARY_TEAM_ID`, `MACOS_NOTARY_PASSWORD` | Apple's notary credentials. With them, and an identity, the disk image is notarized and stapled. |
+| `WINDOWS_CERTIFICATE`, `WINDOWS_CERTIFICATE_PASSWORD` | A base64 code signing `.pfx`, and its password, so SmartScreen does not warn on the installer. |
 
 ## What it does
 

@@ -211,7 +211,7 @@ func (a *App) cliToolCard(c *ui.Context) {
 				settingRule(c)
 				ui.Row(c).FillWidth().Gap(8).Padding(8, 2).AlignItems(ui.Start).Children(func() {
 					ui.Icon(c, iconInfo).FontSize(13).TextColor(t.Warning).Shrink(0).Margin(1, 0)
-					ui.Text(c, "Your shell does not look in "+shortDir(cliLinkDir())+" yet. Add it to PATH in "+platformShell()+", then open a new terminal.").
+					ui.Text(c, "Your terminal does not search "+shortDir(cliLinkDir())+" yet. To add it to PATH, "+pathHint()+".").
 						FontSize(typeCaption).
 						TextColor(t.TextMuted).
 						Grow(1)

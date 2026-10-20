@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"errors"
 	"flag"
 	"io"
 	"os"
@@ -361,3 +362,64 @@ func min(a, b int) int {
 	}
 	return b
 }
+
+// TestNoConnectionsIsNotACrash pins the first-run behaviour every command
+// needs: with nothing saved, a command explains what to do instead of
+// indexing an empty list. The release workflow's smoke test depends on it.
+func TestNoConnectionsIsNotACrash(t *testing.T) {
+	dir := t.TempDir()
+	cfg := Config{
+		Profiles: store.NewProfileStore(filepath.Join(dir, "connections.json"), noSecrets{}),
+	}
+
+	// Reading the list is fine and empty.
+	code, stdout, stderr := runCapture(t, []string{"profiles"}, cfg)
+	if code != ExitOK {
+		t.Fatalf("profiles exited %d: %s", code, stderr)
+	}
+	if !strings.Contains(stdout, "No connection is saved") {
+		t.Fatalf("profiles printed %q", stdout)
+	}
+	code, stdout, _ = runCapture(t, []string{"--json", "profiles"}, cfg)
+	if code != ExitOK || !strings.Contains(stdout, "[]") {
+		t.Fatalf("profiles --json = %d, %q", code, stdout)
+	}
+
+	// Every command that acts on storage reports the missing connection and
+	// exits with the storage error, never panicking.
+	for _, args := range [][]string{
+		{"ls"},
+		{"find", ""},
+		{"usage"},
+		{"stat", "a.txt"},
+		{"cat", "a.txt"},
+		{"share", "a.txt"},
+		{"mkdir", "new/"},
+		{"rm", "a.txt"},
+		{"get", "a.txt", "."},
+		{"put", "a.txt", "b.txt"},
+		{"cp", "a", "b"},
+		{"mv", "a", "b"},
+	} {
+		code, _, stderr := runCapture(t, args, cfg)
+		if code != ExitError {
+			t.Errorf("%v exited %d, want %d", args, code, ExitError)
+		}
+		if strings.Contains(stderr, "panic") {
+			t.Errorf("%v panicked: %s", args, stderr)
+		}
+		if !strings.Contains(stderr, "no connection is saved") {
+			t.Errorf("%v said %q", args, stderr)
+		}
+	}
+}
+
+// noSecrets is a credential store that keeps nothing, for tests that never
+// reach storage.
+type noSecrets struct{}
+
+func (noSecrets) Set(string, []byte) error { return nil }
+func (noSecrets) Get(string) ([]byte, error) {
+	return nil, errors.New("no secret")
+}
+func (noSecrets) Delete(string) error { return nil }

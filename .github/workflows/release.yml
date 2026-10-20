@@ -1,0 +1,333 @@
+name: Release
+
+# A tag like v0.1.0 builds the app for macOS and Windows, and publishes the
+# installers to a GitHub release of that tag. Running the workflow by hand
+# builds the same artifacts and leaves them as a workflow artifact, so a
+# dry run never publishes anything.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  # The toolchain the project pins, so a release builds what the tests ran
+  # against.
+  GO_VERSION: "1.27.1"
+  MYGO_VERSION: "v0.5.5"
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.read.outputs.version }}
+      tag: ${{ steps.read.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: read
+        name: Read the version
+        run: |
+          version="$(jq -r .version mygo.json)"
+          if [ -z "$version" ] || [ "$version" = "null" ]; then
+            echo "mygo.json has no version" >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          # A tag release must match the version the build stamps into the
+          # app, or the app would offer an update to itself forever.
+          tag="${GITHUB_REF_NAME}"
+          case "$tag" in
+            v*) ;;
+            *) tag="v$version" ;;
+          esac
+          if [ "${GITHUB_REF_TYPE}" = "tag" ] && [ "$tag" != "v$version" ]; then
+            echo "the tag $tag does not match the version $version in mygo.json" >&2
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: Vet
+        run: go vet ./...
+      - name: Test
+        # The app's own tests draw the interface with MyGo's headless
+        # renderer, so they need no display and no GPU.
+        run: CGO_ENABLED=0 go test ./...
+
+  macos:
+    needs: [version, test]
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Build the app and the disk image
+        env:
+          # Optional: a Developer ID signs and notarizes the app, so Gatekeeper
+          # lets it run on other Macs. Without one the build is ad hoc signed,
+          # which is what a person builds for themselves.
+          MACOS_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
+          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          MACOS_NOTARY_APPLE_ID: ${{ secrets.MACOS_NOTARY_APPLE_ID }}
+          MACOS_NOTARY_TEAM_ID: ${{ secrets.MACOS_NOTARY_TEAM_ID }}
+          MACOS_NOTARY_PASSWORD: ${{ secrets.MACOS_NOTARY_PASSWORD }}
+        run: |
+          set -euo pipefail
+
+          # Sign with a Developer ID when the repository has one. The
+          # certificate arrives as a base64 .p12 and goes in a keychain of
+          # its own for the length of the build.
+          if [ -n "${MACOS_CERTIFICATE:-}" ]; then
+            keychain="$RUNNER_TEMP/signing.keychain-db"
+            password="$(uuidgen)"
+            echo "$MACOS_CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+            security create-keychain -p "$password" "$keychain"
+            security set-keychain-settings -lut 3600 "$keychain"
+            security unlock-keychain -p "$password" "$keychain"
+            security import "$RUNNER_TEMP/cert.p12" -k "$keychain" \
+              -P "$MACOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+            security set-key-partition-list -S apple-tool:,apple:,codesign: \
+              -s -k "$password" "$keychain" >/dev/null
+            security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+            rm -f "$RUNNER_TEMP/cert.p12"
+          fi
+
+          identity="${MACOS_SIGNING_IDENTITY:--}"
+          args=(-platform darwin/universal -sign "$identity")
+
+          # Notarize only when the notary credentials are here too: an
+          # identity without them would fail the build at the last step.
+          if [ -n "${MACOS_NOTARY_APPLE_ID:-}" ] && [ -n "${MACOS_NOTARY_PASSWORD:-}" ] && [ "$identity" != "-" ]; then
+            xcrun notarytool store-credentials "bucketeer" \
+              --apple-id "$MACOS_NOTARY_APPLE_ID" \
+              --team-id "$MACOS_NOTARY_TEAM_ID" \
+              --password "$MACOS_NOTARY_PASSWORD"
+            jq '.macos.notarize = {"keychainProfile": "bucketeer"}' mygo.json > mygo.tmp.json
+            mv mygo.tmp.json mygo.json
+            args+=(-notarize)
+          else
+            args+=(-skip-notarize)
+          fi
+
+          go run "github.com/egoist/mygo/cmd/mygo@${MYGO_VERSION}" build "${args[@]}"
+
+          # The signing keychain is not needed once the build is done.
+          if [ -n "${MACOS_CERTIFICATE:-}" ]; then
+            security delete-keychain "$RUNNER_TEMP/signing.keychain-db" || true
+          fi
+
+      - name: List what was built
+        run: find build -maxdepth 2 -type f | sort
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          if-no-files-found: error
+          path: |
+            build/darwin-*/*.dmg
+            build/darwin-*/*.tar.gz
+
+  windows:
+    needs: [version, test]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Build the app and the installer
+        shell: pwsh
+        env:
+          # Optional: a code signing certificate keeps SmartScreen quiet. The
+          # password goes in the variable MyGo reads.
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          MYGO_WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          if ($env:WINDOWS_CERTIFICATE) {
+            [IO.File]::WriteAllBytes("$PWD\certificate.pfx", [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE))
+            $json = Get-Content mygo.json -Raw | ConvertFrom-Json
+            $json | Add-Member -NotePropertyName windows `
+              -NotePropertyValue @{ certificate = "certificate.pfx" } -Force
+            $json | ConvertTo-Json -Depth 10 | Set-Content mygo.json
+          }
+
+          # mygo build makes the NSIS installer, downloading NSIS itself when
+          # the runner has none.
+          go run "github.com/egoist/mygo/cmd/mygo@$env:MYGO_VERSION" build -platform windows/amd64
+
+      - name: List what was built
+        shell: pwsh
+        run: Get-ChildItem -Recurse build -File | Select-Object -ExpandProperty FullName
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          if-no-files-found: error
+          path: |
+            build/windows-*/*.exe
+
+  # The smoke test runs each installer's payload the way a user's machine
+  # would: the macOS app through `open`, the Windows executable directly with
+  # its command line, which must reach storage rather than open a window.
+  smoke-macos:
+    needs: macos
+    runs-on: macos-14
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: macos
+          path: artifacts
+
+      - name: Run the packaged app's command line
+        run: |
+          set -euo pipefail
+          app="$(find artifacts -maxdepth 2 -name '*.app' -print -quit)"
+          if [ -z "$app" ]; then
+            echo "the disk image was not built, so there is no app to smoke test"
+            exit 1
+          fi
+          # Unpack the disk image and run the app inside it. `--help` is the
+          # command line side of the same binary, and needs no account.
+          dmg="$(find artifacts -name '*.dmg' -print -quit)"
+          hdiutil attach "$dmg" -nobrowse -readonly -mountpoint /tmp/bucketeer-dmg >/dev/null
+          bin="/tmp/bucketeer-dmg/$(basename "$app")/Contents/MacOS/Bucketeer"
+          test -x "$bin"
+
+          # A clean HOME, so the check exercises a first-run install: no
+          # connections, no keychain entries, no settings.
+          export HOME="$RUNNER_TEMP/fresh-home"
+          mkdir -p "$HOME"
+
+          "$bin" --help | grep -q "the Bucketeer command line"
+          # A command with nothing configured explains itself on stderr and
+          # exits non-zero, rather than crashing or opening a window.
+          if "$bin" profiles >"$RUNNER_TEMP/out" 2>&1; then
+            : # a saved connection is fine too; only a crash is not
+          fi
+          if grep -qi "panic" "$RUNNER_TEMP/out"; then
+            echo "the command line panicked with no configuration:" >&2
+            cat "$RUNNER_TEMP/out" >&2
+            exit 1
+          fi
+          # The window is never opened here: the binary only builds its
+          # interface when started without arguments.
+          hdiutil detach /tmp/bucketeer-dmg >/dev/null
+
+  smoke-windows:
+    needs: windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows
+          path: artifacts
+
+      - name: Run the packaged app's command line
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $exe = Get-ChildItem -Recurse artifacts -Filter *.exe |
+            Where-Object { $_.Name -notlike "*Setup*" } | Select-Object -First 1
+          if (-not $exe) { throw "no executable was built" }
+          $out = & $exe.FullName --help 2>&1 | Out-String
+          if ($out -notmatch "the Bucketeer command line") {
+            throw "the packaged exe did not answer --help: $out"
+          }
+
+          # A fresh profile directory, so this is a first-run check: a
+          # command with nothing configured must explain itself, not crash.
+          $env:BUCKETEER_DATA_DIR = Join-Path $env:RUNNER_TEMP "fresh-data"
+          New-Item -ItemType Directory -Force $env:BUCKETEER_DATA_DIR | Out-Null
+          $profiles = & $exe.FullName profiles 2>&1 | Out-String
+          if ($profiles -match "panic") {
+            throw "the command line panicked with no configuration: $profiles"
+          }
+          Write-Host $profiles
+
+  publish:
+    needs: [version, macos, windows, smoke-macos, smoke-windows]
+    # Only a tag publishes. A manual run stops after the smoke tests, with the
+    # artifacts to download.
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Collect the installers
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          find artifacts -type f \( -name '*.dmg' -o -name '*.exe' -o -name '*.tar.gz' \) \
+            -exec cp {} dist/ \;
+          ls -lh dist
+
+      - name: Write the release notes
+        run: |
+          set -euo pipefail
+          version="${{ needs.version.outputs.version }}"
+          # Kept outside dist/, which is what gets attached: notes are not an
+          # installer.
+          notes="release-notes.md"
+          # The changelog's own section, when it has one.
+          if [ -f CHANGELOG.md ] && grep -q "^## $version" CHANGELOG.md; then
+            awk -v v="## $version" '
+              index($0, v) == 1 { on = 1; next }
+              on && /^## / { exit }
+              on { print }
+            ' CHANGELOG.md > "$notes"
+          fi
+          {
+            echo
+            echo "### Downloads"
+            echo
+            # A universal build's disk image carries no architecture in its
+            # name, which is how mygo names the two-architecture one.
+            echo "- **macOS** — \`Bucketeer $version.dmg\` runs on Apple silicon and Intel Macs."
+            echo "- **Windows** — \`Bucketeer Setup $version amd64.exe\` installs for the current user."
+            echo
+            echo "The app also carries the \`bkt\` command line and a skill for coding agents;"
+            echo "install both from **Settings → Command line**."
+          } >> "$notes"
+          cat "$notes"
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.version.outputs.tag }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            # A tag pushed again replaces the files, keeping the release.
+            gh release upload "$TAG" dist/* --clobber
+          else
+            gh release create "$TAG" dist/* \
+              --title "Bucketeer $VERSION" \
+              --notes-file release-notes.md
+          fi
+          gh release view "$TAG"

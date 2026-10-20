@@ -951,7 +951,14 @@ func runProfiles(args []string, cfg Config, opts globalOpts) error {
 	if err != nil {
 		return err
 	}
-	chosen, _ := chooseProfile(profiles, opts.profile)
+	// No saved connection is a normal state, not a failure: the list is
+	// simply empty, and --profile cannot name one.
+	chosen := store.Profile{}
+	if len(profiles) > 0 {
+		if p, err := chooseProfile(profiles, opts.profile); err == nil {
+			chosen = p
+		}
+	}
 	docs := make([]tokenDoc, 0, len(profiles))
 	for _, p := range profiles {
 		docs = append(docs, tokenDoc{
@@ -965,6 +972,10 @@ func runProfiles(args []string, cfg Config, opts globalOpts) error {
 	defer o.flush()
 	if err := o.doc(docs); err != nil {
 		return err
+	}
+	if len(docs) == 0 {
+		o.text("No connection is saved yet: add one in Bucketeer, under Settings → Connections.")
+		return nil
 	}
 	for _, d := range docs {
 		mark := " "
