@@ -482,8 +482,8 @@ func (s *Session) MakeFolder(ctx context.Context, bucket, prefix, name string) (
 	return key, nil
 }
 
-// Rename copies an object to a new key and removes the old one.
-func (s *Session) Rename(ctx context.Context, bucket, from, to string) error {
+// Copy copies one object to another key, on the server.
+func (s *Session) Copy(ctx context.Context, bucket, from, to string) error {
 	if from == to {
 		return nil
 	}
@@ -492,6 +492,17 @@ func (s *Session) Rename(ctx context.Context, bucket, from, to string) error {
 		minio.CopySrcOptions{Bucket: bucket, Object: from},
 	); err != nil {
 		return describe(err)
+	}
+	return nil
+}
+
+// Rename copies an object to a new key and removes the old one.
+func (s *Session) Rename(ctx context.Context, bucket, from, to string) error {
+	if from == to {
+		return nil
+	}
+	if err := s.Copy(ctx, bucket, from, to); err != nil {
+		return err
 	}
 	if err := s.client.RemoveObject(ctx, bucket, from, minio.RemoveObjectOptions{}); err != nil {
 		return describe(err)
@@ -611,11 +622,19 @@ type UploadOptions struct {
 	Src string
 	// Size is the file's size; -1 to have it detected.
 	Size int64
+	// ContentType overrides the type guessed from the key.
+	ContentType string
 }
 
 // Upload writes a local file to an object, using a multipart upload when
 // the file is large.
 func (s *Session) Upload(ctx context.Context, opts UploadOptions, progress func(Progress)) error {
+	return s.UploadFile(ctx, opts, progress)
+}
+
+// UploadFile writes a local file to an object, with the content type the
+// options name or the one its key suggests.
+func (s *Session) UploadFile(ctx context.Context, opts UploadOptions, progress func(Progress)) error {
 	f, err := openFile(opts.Src)
 	if err != nil {
 		return err
@@ -631,8 +650,12 @@ func (s *Session) Upload(ctx context.Context, opts UploadOptions, progress func(
 		size = st.Size()
 	}
 
+	contentType := opts.ContentType
+	if contentType == "" {
+		contentType = contentTypeFor(opts.Key)
+	}
 	put := minio.PutObjectOptions{
-		ContentType: contentTypeFor(opts.Key),
+		ContentType: contentType,
 		PartSize:    multipartPartSize(size),
 	}
 	if size == 0 {
@@ -643,6 +666,31 @@ func (s *Session) Upload(ctx context.Context, opts UploadOptions, progress func(
 	}
 	_, err = s.client.PutObject(ctx, opts.Bucket, opts.Key, progressReader(ctx, f, size, progress), size, put)
 	if err != nil {
+		return describe(err)
+	}
+	return nil
+}
+
+// UploadWriter writes a stream to an object. size is the number of bytes
+// in r, or -1 when it is not known, as for a pipe.
+func (s *Session) UploadWriter(ctx context.Context, bucket, key string, r io.Reader, size int64, contentType string) error {
+	if contentType == "" {
+		contentType = contentTypeFor(key)
+	}
+	put := minio.PutObjectOptions{
+		ContentType: contentType,
+		PartSize:    multipartPartSize(size),
+	}
+	if size == 0 {
+		// Nothing to checksum; the streaming signature would frame an
+		// empty body as chunked, which some servers reject.
+		put.DisableContentSha256 = true
+	}
+	var body io.Reader = r
+	if size >= 0 {
+		body = io.LimitReader(r, size)
+	}
+	if _, err := s.client.PutObject(ctx, bucket, key, body, size, put); err != nil {
 		return describe(err)
 	}
 	return nil

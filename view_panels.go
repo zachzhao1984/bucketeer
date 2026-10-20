@@ -349,6 +349,7 @@ type settingsPage int
 const (
 	pagePreferences settingsPage = iota
 	pageConnections
+	pageCLI
 	pageAbout
 )
 
@@ -370,6 +371,8 @@ func (a *App) settings(c *ui.Context) {
 						switch a.settingsPage {
 						case pageConnections:
 							a.settingsConnections(c)
+						case pageCLI:
+							a.settingsCLI(c)
 						case pageAbout:
 							a.settingsAbout(c)
 						default:
@@ -397,6 +400,7 @@ func (a *App) settingsSidebar(c *ui.Context) {
 		}{
 			{pagePreferences, "Preferences", iconSliders},
 			{pageConnections, "Connections", iconBucket},
+			{pageCLI, "Command line", iconTerminal},
 			{pageAbout, "About", iconInfo},
 		}
 		for _, p := range pages {
@@ -405,7 +409,17 @@ func (a *App) settingsSidebar(c *ui.Context) {
 			row := ui.ButtonBase(c).Key("page:"+entry.label).
 				FillWidth().Height(34).Padding(0, 10).Gap(9).Radius(8).
 				AlignItems(ui.Center).Cursor(ui.CursorPointer).
-				TextColor(t.Text).OnClick(func() { a.settingsPage = entry.page })
+				TextColor(t.Text).OnClick(func() {
+				if a.settingsPage == entry.page {
+					return
+				}
+				a.settingsPage = entry.page
+				// The Command line page reads the link and the installed
+				// skills from disk, so it is brought up to date on entry.
+				if entry.page == pageCLI {
+					a.refreshCLIState()
+				}
+			})
 			row.Label(entry.label)
 			hovered := row.Hovered()
 			if chosen {

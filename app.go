@@ -105,6 +105,9 @@ type App struct {
 	shareOpen      bool
 	ttlOpen        bool
 	settingsPage   settingsPage
+	// cli is the Command line page's state: the link, the installed
+	// skills, and what the last action did.
+	cli cliState
 	// rowMenuKey is the row whose Actions menu is open, and rowMenuOpen
 	// whether it is.
 	rowMenuKey  string
@@ -348,6 +351,8 @@ func (a *App) setSection(s Section) {
 		a.loadStat()
 	case s == sectionRecent && a.browsing() && len(a.recent) == 0:
 		a.loadRecent()
+	case s == sectionSettings && a.settingsPage == pageCLI:
+		a.refreshCLIState()
 	}
 }
 

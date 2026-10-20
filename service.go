@@ -128,12 +128,13 @@ func (s *Service) transfersChanged() {
 	}
 }
 
-// secretStore keeps connection secrets in the system's credential store.
-type secretStore struct{}
+// secretStore is the credential store the window and the command line
+// share; see secrets.go.
+type secretStore = sharedSecrets
 
-func (secretStore) Set(key string, value []byte) error { return mygo.Secrets.Set(key, value) }
-func (secretStore) Get(key string) ([]byte, error)     { return mygo.Secrets.Get(key) }
-func (secretStore) Delete(key string) error            { return mygo.Secrets.Delete(key) }
+// appIdentifier is the app's bundle identifier, which MyGo names the
+// credential store after.
+const appIdentifier = "dev.bucketeer.app"
 
 // r2Config is the shape of the optional r2.json the app ships with, which
 // preloads a Cloudflare R2 connection so the app starts ready to use.

@@ -50,6 +50,8 @@ var (
 	iconClock       = icon(`<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 1.8"/>`)
 	iconArrowLeft   = icon(`<path d="M19.5 12H5M11.5 5.5 5 12l6.5 6.5"/>`)
 
+	iconTerminal = icon(`<rect x="3" y="4.5" width="18" height="15" rx="2.5"/><path d="m7.5 10 2.5 2.5-2.5 2.5M13 15h4"/>`)
+
 	iconInfo  = icon(`<circle cx="12" cy="12" r="8.5"/><path d="M12 16.5V11M12 8h.01"/>`)
 	iconAlert = icon(`<path d="M10.3 4.2 2.6 17.5A1.9 1.9 0 0 0 4.3 20.4h15.4a1.9 1.9 0 0 0 1.7-2.9L13.7 4.2a2 2 0 0 0-3.4 0z"/><path d="M12 9.5v4M12 17h.01"/>`)
 	iconCloud = icon(`<path d="M7 18.5a4.2 4.2 0 0 1 .5-8.4 5.6 5.6 0 0 1 10.7 1.6A3.6 3.6 0 0 1 17.8 18.5z"/>`)
@@ -158,6 +160,8 @@ func iconFor(name string) *ui.SVG {
 		return iconCloud
 	case "lock":
 		return iconLock
+	case "terminal":
+		return iconTerminal
 	case "sparkle":
 		return iconSparkle
 	default:

@@ -1,11 +1,13 @@
 package main
 
 import (
+	"bucketeer/internal/cli"
 	"bucketeer/internal/store"
 	"github.com/egoist/mygo/ui"
 	"image/png"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -303,6 +305,9 @@ func TestGenerateShots(t *testing.T) {
 
 		a.settingsPage = pageConnections
 		save(tester, "settings-connections.png")
+		a.settingsPage = pageCLI
+		a.refreshCLIState()
+		save(tester, "settings-cli.png")
 		a.settingsPage = pageAbout
 		save(tester, "settings-about.png")
 	}
@@ -456,5 +461,98 @@ func TestSelectionActionsReplaceTheToolbar(t *testing.T) {
 	}
 	if !tester.HasText("New folder") {
 		t.Fatalf("the usual actions did not come back: %v", tester.Texts())
+	}
+}
+
+// TestNativeCommandLinePage checks the Settings page that installs the
+// command line and the skill: it lists the agents on this machine, and the
+// copy buttons hand over a command that names this build.
+func TestNativeCommandLinePage(t *testing.T) {
+	a := nativeTestApp(t)
+	a.section = sectionSettings
+	a.settingsPage = pageCLI
+	a.refreshCLIState()
+	tester := ui.NewTester(a.view, 1180, 1000)
+	tester.SetTitleBar(ui.TitleBar{Height: 52, Left: 79})
+	tester.Frame()
+
+	for _, want := range []string{
+		"Command line", "bkt command",
+		"Skill for coding agents", "Commands",
+	} {
+		if !tester.HasText(want) {
+			t.Fatalf("the page is missing %q", want)
+		}
+	}
+	// The reference has to name the commands the binary actually accepts.
+	for name := range cli.Commands() {
+		if !tester.HasText("bkt " + name) {
+			t.Errorf("the reference does not show bkt %s", name)
+		}
+	}
+
+	// Copying a sample puts something runnable on the clipboard, with the
+	// program's own path quoted when it has spaces in it.
+	a.copyCLICommand("ls", "Command")
+	if got := tester.Clipboard(); !strings.Contains(got, " ls") {
+		t.Fatalf("clipboard = %q", got)
+	}
+
+	// The smallest window still shows the page's first action.
+	tester.SetSize(900, 560)
+	tester.Frame()
+	if !tester.HasText("bkt command") {
+		t.Fatal("the page did not survive the smallest window")
+	}
+}
+
+// TestNativeCommandLineInstall checks that the page's install action writes
+// both the link and the skill, and that Remove takes them away again.
+func TestNativeCommandLineInstall(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	if err := os.MkdirAll(filepath.Join(home, ".claude", "skills"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	a := nativeTestApp(t)
+	a.section = sectionSettings
+	a.settingsPage = pageCLI
+	a.refreshCLIState()
+
+	// Use a stand-in program path so the test never points PATH at a
+	// temporary test binary.
+	a.installCLIAt("/opt/Bucketeer.app/Contents/MacOS/Bucketeer")
+
+	link := filepath.Join(home, ".local", "bin", "bkt")
+	if target, err := os.Readlink(link); err != nil || target != "/opt/Bucketeer.app/Contents/MacOS/Bucketeer" {
+		t.Fatalf("link = %q, %v", target, err)
+	}
+	entry := filepath.Join(home, ".claude", "skills", "bucketeer", "SKILL.md")
+	body, err := os.ReadFile(entry)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(body), "/opt/Bucketeer.app/Contents/MacOS/Bucketeer") {
+		t.Fatal("the installed skill does not name the installed program")
+	}
+
+	// The page reads its state for the program it installed for.
+	a.refreshCLIStateAt("/opt/Bucketeer.app/Contents/MacOS/Bucketeer")
+	if !a.cli.LinkExists || !a.cli.LinkCurrent {
+		t.Fatalf("the page does not see its own link: exists=%v current=%v", a.cli.LinkExists, a.cli.LinkCurrent)
+	}
+	for _, status := range a.cli.Targets {
+		if status.Name == "Claude Code" && (!status.Installed || !status.Current) {
+			t.Fatalf("the page does not see the installed skill: %+v", status)
+		}
+	}
+
+	a.removeCLIAt("/opt/Bucketeer.app/Contents/MacOS/Bucketeer")
+	if _, err := os.Lstat(link); !os.IsNotExist(err) {
+		t.Fatalf("remove kept the link: %v", err)
+	}
+	if _, err := os.Stat(filepath.Dir(entry)); !os.IsNotExist(err) {
+		t.Fatal("remove kept the skill")
 	}
 }

@@ -5,9 +5,16 @@ import (
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 	"log"
+	"os"
 )
 
 func main() {
+	// The app is also its own command line: with arguments it acts on the
+	// saved connections and exits, without arguments it opens the window.
+	if len(os.Args) > 1 {
+		os.Exit(runCLI(os.Args[1:]))
+	}
+
 	service, err := newService()
 	if err != nil {
 		log.Fatal(err)
@@ -30,6 +37,14 @@ func main() {
 				{Label: "Upload Files…", Accelerator: "CmdOrCtrl+O", Click: func(*mygo.MenuItem, *mygo.Window) { win.Update(app.upload) }},
 				{Label: "Refresh", Accelerator: "CmdOrCtrl+R", Click: func(*mygo.MenuItem, *mygo.Window) { win.Update(app.refresh) }},
 				{Label: "Transfers", Accelerator: "CmdOrCtrl+T", Click: func(*mygo.MenuItem, *mygo.Window) { win.Update(func() { app.transfersOpen = !app.transfersOpen }) }},
+				mygo.Separator(),
+				{Label: "Install Command Line…", Click: func(*mygo.MenuItem, *mygo.Window) {
+					win.Update(func() {
+						app.setSection(sectionSettings)
+						app.settingsPage = pageCLI
+						app.refreshCLIState()
+					})
+				}},
 				mygo.Separator(), {Role: mygo.RoleClose},
 			}},
 			{Role: mygo.RoleEditMenu}, {Role: mygo.RoleWindowMenu},
