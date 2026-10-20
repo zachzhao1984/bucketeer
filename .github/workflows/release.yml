@@ -202,16 +202,21 @@ jobs:
       - name: Run the packaged app's command line
         run: |
           set -euo pipefail
-          app="$(find artifacts -maxdepth 2 -name '*.app' -print -quit)"
-          if [ -z "$app" ]; then
-            echo "the disk image was not built, so there is no app to smoke test"
+          # The app ships inside the disk image, which is what was uploaded;
+          # mounting it is also what a person does.
+          dmg="$(find artifacts -name '*.dmg' -print -quit)"
+          if [ -z "$dmg" ]; then
+            echo "no disk image was built" >&2
+            ls -R artifacts >&2
             exit 1
           fi
-          # Unpack the disk image and run the app inside it. `--help` is the
-          # command line side of the same binary, and needs no account.
-          dmg="$(find artifacts -name '*.dmg' -print -quit)"
-          hdiutil attach "$dmg" -nobrowse -readonly -mountpoint /tmp/bucketeer-dmg >/dev/null
-          bin="/tmp/bucketeer-dmg/$(basename "$app")/Contents/MacOS/Bucketeer"
+          mount=/tmp/bucketeer-dmg
+          hdiutil attach "$dmg" -nobrowse -readonly -mountpoint "$mount" >/dev/null
+          # Whatever the volume holds is the app, whatever the bundle is
+          # named, so the check does not hard-code the name.
+          bundle="$(find "$mount" -maxdepth 1 -name '*.app' -print -quit)"
+          bin="$bundle/Contents/MacOS/$(basename "$bundle" .app)"
+          test -x "$bin" || bin="$(find "$bundle/Contents/MacOS" -maxdepth 1 -type f -perm -111 -print -quit)"
           test -x "$bin"
 
           # A clean HOME, so the check exercises a first-run install: no
@@ -232,7 +237,7 @@ jobs:
           fi
           # The window is never opened here: the binary only builds its
           # interface when started without arguments.
-          hdiutil detach /tmp/bucketeer-dmg >/dev/null
+          hdiutil detach "$mount" >/dev/null
 
   smoke-windows:
     needs: windows
