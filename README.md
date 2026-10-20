@@ -15,8 +15,8 @@ that speaks the S3 API.
 
 Releases carry a universal macOS disk image and a Windows installer:
 
-- **macOS 12 or later**, Apple silicon and Intel: `Bucketeer <version>.dmg`
-- **Windows 10 or later**: `Bucketeer Setup <version> amd64.exe`, which
+- **macOS 12 or later**, Apple silicon and Intel: `Bucketeer-<version>-macos-universal.dmg`
+- **Windows 10 or later**: `Bucketeer-<version>-windows-amd64.exe`, which
   installs for the current user, with no administrator prompt
 
 ## Building and Running
