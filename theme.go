@@ -6,9 +6,10 @@ import "github.com/egoist/mygo/ui"
 //
 // The window is two planes: a light sidebar, and a canvas for content.
 // Controls are white plates with a hairline and a shadow so faint it only
-// shows on a light page. One accent — a strong blue — marks the chosen
-// place and the one action a screen wants. Nothing is bevelled, nothing
-// is textured.
+// shows on a light page. One accent — a warm orange — marks the chosen
+// place and the one action a screen wants. Nothing is bevelled but the
+// drive plate: the connection's mark is the one deliberately physical
+// thing in the window, because a bucket is a place things live.
 
 func bucketeerTheme(dark bool) *ui.Theme {
 	if dark {
@@ -26,15 +27,15 @@ func lightTheme() *ui.Theme {
 	t.Border = ui.Hex("#E4E4E7") // a hairline
 	t.Text = ui.Hex("#1D1D1F")
 	t.TextMuted = ui.Hex("#6C6C71")
-	t.Accent = ui.Hex("#3163F4")
-	t.AccentHover = ui.Hex("#2A57DC")
-	t.AccentPressed = ui.Hex("#244BC4")
+	t.Accent = ui.Hex("#C74E15")
+	t.AccentHover = ui.Hex("#B74511")
+	t.AccentPressed = ui.Hex("#A63D0E")
 	t.AccentText = ui.Hex("#FFFFFF")
 	t.Danger = ui.Hex("#D93025")
 	t.Warning = ui.Hex("#B25000")
 	t.Success = ui.Hex("#188038")
-	t.Selection = ui.Hex("#E8EEFE")
-	t.Focus = ui.RGBA(49, 99, 244, 0.45)
+	t.Selection = ui.Hex("#FBE9DD")
+	t.Focus = ui.RGBA(199, 78, 21, 0.45)
 	t.Scrollbar = ui.RGBA(0, 0, 0, 0.20)
 	t.Inverse = ui.Hex("#1D1D1F")
 	t.InverseText = ui.Hex("#FFFFFF")
@@ -52,15 +53,15 @@ func darkTheme() *ui.Theme {
 	t.Border = ui.Hex("#38383C")
 	t.Text = ui.Hex("#F5F5F7")
 	t.TextMuted = ui.Hex("#98989F")
-	t.Accent = ui.Hex("#3E6DF6")
-	t.AccentHover = ui.Hex("#527CF8")
-	t.AccentPressed = ui.Hex("#325EE0")
+	t.Accent = ui.Hex("#C25118")
+	t.AccentHover = ui.Hex("#C94F16")
+	t.AccentPressed = ui.Hex("#B74511")
 	t.AccentText = ui.Hex("#FFFFFF")
 	t.Danger = ui.Hex("#FF6B60")
 	t.Warning = ui.Hex("#FFB340")
 	t.Success = ui.Hex("#3DD68C")
-	t.Selection = ui.Hex("#22314F")
-	t.Focus = ui.RGBA(62, 109, 246, 0.60)
+	t.Selection = ui.Hex("#372013")
+	t.Focus = ui.RGBA(255, 133, 77, 0.55)
 	t.Scrollbar = ui.RGBA(255, 255, 255, 0.22)
 	t.Inverse = ui.Hex("#F5F5F7")
 	t.InverseText = ui.Hex("#1D1D1F")
@@ -129,16 +130,16 @@ func chromeOf(t *ui.Theme) chrome {
 			hover:   ui.RGBA(255, 255, 255, 0.07),
 			pressed: ui.RGBA(255, 255, 255, 0.04),
 
-			selected:   ui.Hex("#3E6DF6"),
+			selected:   ui.Hex("#C25118"),
 			selectedOn: ui.Hex("#FFFFFF"),
-			accentOn:   ui.Hex("#7FA2FF"),
+			accentOn:   ui.Hex("#FF9A62"),
 
 			floatShadow: ui.RGBA(0, 0, 0, 0.55),
 			plateShadow: ui.RGBA(0, 0, 0, 0.35),
 
-			accentFill:    ui.Hex("#3E6DF6"),
-			accentFillHov: ui.Hex("#527CF8"),
-			accentFillPrs: ui.Hex("#325EE0"),
+			accentFill:    ui.Hex("#C25118"),
+			accentFillHov: ui.Hex("#C94F16"),
+			accentFillPrs: ui.Hex("#B74511"),
 			accentOnFill:  ui.Hex("#FFFFFF"),
 
 			dangerFill:    ui.Hex("#C9342A"),
@@ -161,16 +162,16 @@ func chromeOf(t *ui.Theme) chrome {
 		hover:   ui.RGBA(0, 0, 0, 0.045),
 		pressed: ui.RGBA(0, 0, 0, 0.085),
 
-		selected:   ui.Hex("#3163F4"),
+		selected:   ui.Hex("#C74E15"),
 		selectedOn: ui.Hex("#FFFFFF"),
-		accentOn:   ui.Hex("#3163F4"),
+		accentOn:   ui.Hex("#C74E15"),
 
 		floatShadow: ui.RGBA(0, 0, 0, 0.16),
 		plateShadow: ui.RGBA(0, 0, 0, 0.05),
 
-		accentFill:    ui.Hex("#3163F4"),
-		accentFillHov: ui.Hex("#2A57DC"),
-		accentFillPrs: ui.Hex("#244BC4"),
+		accentFill:    ui.Hex("#C74E15"),
+		accentFillHov: ui.Hex("#B74511"),
+		accentFillPrs: ui.Hex("#A63D0E"),
 		accentOnFill:  ui.Hex("#FFFFFF"),
 
 		dangerFill:    ui.Hex("#D93025"),

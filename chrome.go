@@ -541,6 +541,31 @@ func iconPlate(c *ui.Context, glyph *ui.SVG, tint ui.Color, size float32) ui.Ele
 }
 
 // monogram is a round tag of a name's initials.
+// drivePlate is the connection's mark: a small drive with a warm
+// anodized face, a highlight along its top edge, and four screws. It is
+// the one deliberately physical thing in the window — a bucket is a
+// place things live.
+func drivePlate(c *ui.Context, name string, size float32) ui.Element {
+	e := ui.Box(c).Size(size, size).Radius(size * 0.30).Shrink(0).Center().Clip()
+	rad := size * 0.30
+	screw := max(2, size*0.075)
+	off := size * 0.17
+	e.Draw(func(p *ui.Painter, r ui.Rect) {
+		p.Fill(r, ui.Hex("#E0762F"), rad)
+		p.Fill(ui.Rect{X: r.X + 1, Y: r.Y + 1, W: r.W - 2, H: r.H * 0.46}, ui.RGBA(255, 255, 255, 0.30), rad)
+		for _, pt := range [][2]float32{
+			{off, off}, {r.W - off, off}, {off, r.H - off}, {r.W - off, r.H - off},
+		} {
+			p.Fill(ui.Rect{X: r.X + pt[0] - screw/2, Y: r.Y + pt[1] - screw/2, W: screw, H: screw},
+				ui.RGBA(70, 30, 8, 0.55), screw/2)
+		}
+	})
+	e.Children(func() {
+		ui.Text(c, initialsOf(name)).FontSize(size * 0.38).FontWeight(weightSemi).TextColor(ui.Hex("#FFFFFF"))
+	})
+	return e
+}
+
 func monogram(c *ui.Context, name string, size float32) ui.Element {
 	t := c.Theme()
 	e := ui.Box(c).Size(size, size).Radius(size * 0.30).Shrink(0).Center().Clip()

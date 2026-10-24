@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>Bucketeer UI 重设计 · 六候选缩略图</title>
+<style>
+  :root{ color-scheme: light; }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  body{ background:#E8E8EC; font-family:-apple-system,"PingFang SC","Helvetica Neue",sans-serif; padding:28px; }
+  h1{ font-size:15px; font-weight:600; color:#3a3a3f; margin-bottom:4px; }
+  p.sub{ font-size:12px; color:#8a8a90; margin-bottom:20px; }
+  .grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:18px; }
+  .cell{ background:#fff; border-radius:10px; padding:10px; box-shadow:0 1px 3px rgba(0,0,0,.08); }
+  .tag{ font-size:11px; color:#6b6b72; margin:6px 2px 8px; line-height:1.5; }
+  .tag b{ color:#2c2c31; font-weight:600; }
+  .frame{ width:100%; aspect-ratio:480/300; border-radius:6px; overflow:hidden; position:relative; }
+  .frame > div{ position:absolute; inset:0; }
+  .ph{ background:#cfd3d9; }
+  .ph2{ background:#c4c9d0; }
+  .ph3{ background:#d6cfc4; }
+</style>
+</head>
+<body>
+<h1>Bucketeer 重设计 · 六候选缩略图</h1>
+<p class="sub">每格 = 主屏(文件网格 + 传输 dock)在该方向下的关键一屏 · 480×300</p>
+<div class="grid">
+
+<!-- ============ 1 · PANIC 物件感(浅色原生 + 盘的实体感) ============ -->
+<div class="cell"><div class="frame"><div style="display:flex;background:#F7F7F8;">
+  <div style="width:118px;background:#EFEFF2;padding:10px 8px;display:flex;flex-direction:column;gap:3px;">
+    <div style="font-size:8px;color:#86868c;padding:2px 6px 5px;">Bucketeer</div>
+    <div style="font-size:9px;color:#3a3a40;padding:4px 6px;border-radius:5px;">Dashboard</div>
+    <div style="font-size:9px;color:#fff;background:#E86A2C;padding:4px 6px;border-radius:5px;font-weight:600;">All files</div>
+    <div style="font-size:9px;color:#3a3a40;padding:4px 6px;">Recent</div>
+    <div style="font-size:9px;color:#3a3a40;padding:4px 6px;">Settings</div>
+    <div style="flex:1"></div>
+    <div style="background:#fff;border-radius:8px;padding:7px;box-shadow:0 1px 4px rgba(0,0,0,.1);">
+      <div style="display:flex;gap:5px;align-items:center;">
+        <div style="width:18px;height:18px;border-radius:6px;background:linear-gradient(135deg,#E86A2C,#F5A623);"></div>
+        <div><div style="font-size:8px;font-weight:600;color:#2c2c31;">R2 主力</div>
+        <div style="font-size:7px;color:#86868c;">media · 2.4 GB</div></div>
+      </div>
+    </div>
+  </div>
+  <div style="flex:1;padding:8px 10px;">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:7px;">
+      <div style="font-size:9px;font-weight:700;color:#1d1d1f;">media / photos / 2026-10</div>
+      <div style="flex:1"></div>
+      <div style="width:70px;height:14px;border-radius:7px;background:#fff;border:1px solid #ddd;"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:7px;">
+      <div style="background:#fff;border-radius:9px;padding:4px;box-shadow:0 1px 3px rgba(0,0,0,.08);"><div class="ph" style="height:38px;border-radius:6px;"></div><div style="font-size:7.5px;font-weight:600;color:#2c2c31;margin-top:3px;">IMG_2417.jpg</div><div style="font-size:6.5px;color:#9a9aa0;">3.4 MB</div></div>
+      <div style="background:#fff;border-radius:9px;padding:4px;box-shadow:0 1px 3px rgba(0,0,0,.08);"><div style="height:38px;border-radius:6px;background:linear-gradient(135deg,#E86A2C22,#F5A62355);display:flex;align-items:center;justify-content:center;color:#E86A2C;font-size:11px;">▶</div><div style="font-size:7.5px;font-weight:600;color:#2c2c31;margin-top:3px;">sunrise-tl.mp4</div><div style="font-size:6.5px;color:#9a9aa0;">482 MB</div></div>
+      <div style="background:#fff;border-radius:9px;padding:4px;box-shadow:0 1px 3px rgba(0,0,0,.08);"><div class="ph2" style="height:38px;border-radius:6px;"></div><div style="font-size:7.5px;font-weight:600;color:#2c2c31;margin-top:3px;">album-cover.png</div><div style="font-size:6.5px;color:#9a9aa0;">1.1 MB</div></div>
+      <div style="background:#fff;border-radius:9px;padding:4px;box-shadow:0 1px 3px rgba(0,0,0,.08);"><div style="height:38px;border-radius:6px;background:#EFEFF2;display:flex;align-items:center;justify-content:center;color:#86868c;font-size:10px;">▣</div><div style="font-size:7.5px;font-weight:600;color:#2c2c31;margin-top:3px;">field-notes.pdf</div><div style="font-size:6.5px;color:#9a9aa0;">82 KB</div></div>
+      <div style="background:#fff;border-radius:9px;padding:4px;box-shadow:0 1px 3px rgba(0,0,0,.08);"><div class="ph3" style="height:38px;border-radius:6px;"></div><div style="font-size:7.5px;font-weight:600;color:#2c2c31;margin-top:3px;">IMG_2418.jpg</div><div style="font-size:6.5px;color:#9a9aa0;">2.9 MB</div></div>
+      <div style="background:#fff;border-radius:9px;padding:4px;box-shadow:0 1px 3px rgba(0,0,0,.08);"><div style="height:38px;border-radius:6px;background:#EFEFF2;display:flex;align-items:center;justify-content:center;color:#86868c;font-size:10px;">◈</div><div style="font-size:7.5px;font-weight:600;color:#2c2c31;margin-top:3px;">backup.zip</div><div style="font-size:6.5px;color:#9a9aa0;">1.9 GB</div></div>
+      <div style="background:#fff;border-radius:9px;padding:4px;box-shadow:0 1px 3px rgba(0,0,0,.08);"><div class="ph" style="height:38px;border-radius:6px;"></div><div style="font-size:7.5px;font-weight:600;color:#2c2c31;margin-top:3px;">IMG_2419.jpg</div><div style="font-size:6.5px;color:#9a9aa0;">3.1 MB</div></div>
+      <div style="background:#fff;border-radius:9px;padding:4px;box-shadow:0 1px 3px rgba(0,0,0,.08);outline:1.5px solid #E86A2C;"><div class="ph2" style="height:38px;border-radius:6px;"></div><div style="font-size:7.5px;font-weight:600;color:#E86A2C;margin-top:3px;">IMG_2420.jpg</div><div style="font-size:6.5px;color:#9a9aa0;">3.0 MB</div></div>
+    </div>
+    <div style="position:absolute;bottom:8px;left:14px;right:14px;background:#fff;border-radius:10px;box-shadow:0 4px 14px rgba(0,0,0,.14);padding:6px 9px;display:flex;gap:8px;align-items:center;">
+      <div style="font-size:7.5px;color:#2c2c31;font-weight:600;flex:1;">IMG_2420.jpg <span style="color:#9a9aa0;">↑ 78%</span></div>
+      <div style="width:52px;height:3px;border-radius:2px;background:#EFEFF2;overflow:hidden;"><div style="width:78%;height:100%;background:#E86A2C;"></div></div>
+    </div>
+  </div>
+</div></div><p class="tag" style="margin:6px 2px 2px;"><b>1 · Panic 物件感</b> — 浅色原生,连接卡是"一块盘",暖橙强调,大圆角,app 像实物工具。</p></div>
+
+<!-- ============ 2 · LINEAR 工程克制(暗色分层灰) ============ -->
+<div class="cell"><div class="frame"><div style="display:flex;background:#0E0F13;">
+  <div style="width:112px;background:#111318;border-right:1px solid #1F222B;padding:10px 8px;display:flex;flex-direction:column;gap:2px;">
+    <div style="font-size:8px;color:#6E7387;padding:2px 6px 6px;letter-spacing:.4px;">BUCKETEER</div>
+    <div style="font-size:9px;color:#C9CCD8;padding:4px 6px;border-radius:4px;">Dashboard</div>
+    <div style="font-size:9px;color:#fff;background:#1B1E27;padding:4px 6px;border-radius:4px;box-shadow:inset 0 0 0 1px #2A2E3C;">All files</div>
+    <div style="font-size:9px;color:#7E839A;padding:4px 6px;">Recent files</div>
+    <div style="font-size:9px;color:#7E839A;padding:4px 6px;">Settings</div>
+    <div style="flex:1"></div>
+    <div style="background:#15171E;border-radius:6px;padding:6px;box-shadow:inset 0 0 0 1px #232734;">
+      <div style="font-size:8px;font-weight:600;color:#E3E5EE;">R2 主力</div>
+      <div style="font-size:7px;color:#6E7387;margin-top:1px;">media · 2.4 GB</div>
+    </div>
+  </div>
+  <div style="flex:1;padding:8px 10px;">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:7px;">
+      <div style="font-size:9px;font-weight:600;color:#C9CCD8;">media <span style="color:#4A4F63;">/ photos / 2026-10</span></div>
+      <div style="flex:1"></div>
+      <div style="font-size:7px;color:#6E7387;border:1px solid #232734;border-radius:4px;padding:2px 5px;">Date</div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;">
+      <div style="background:#13151B;border-radius:6px;padding:4px;box-shadow:inset 0 0 0 1px #1F222B;"><div class="ph" style="height:36px;border-radius:4px;filter:brightness(.92);"></div><div style="font-size:7.5px;color:#E3E5EE;margin-top:3px;">IMG_2417.jpg</div><div style="font-size:6.5px;color:#6E7387;">3.4 MB · 2h</div></div>
+      <div style="background:#13151B;border-radius:6px;padding:4px;box-shadow:inset 0 0 0 1px #1F222B;"><div style="height:36px;border-radius:4px;background:#191C24;display:flex;align-items:center;justify-content:center;color:#7E839A;font-size:10px;">▶</div><div style="font-size:7.5px;color:#E3E5EE;margin-top:3px;">sunrise-tl.mp4</div><div style="font-size:6.5px;color:#6E7387;">482 MB</div></div>
+      <div style="background:#13151B;border-radius:6px;padding:4px;box-shadow:inset 0 0 0 1px #1F222B;"><div class="ph2" style="height:36px;border-radius:4px;filter:brightness(.92);"></div><div style="font-size:7.5px;color:#E3E5EE;margin-top:3px;">album-cover.png</div><div style="font-size:6.5px;color:#6E7387;">1.1 MB</div></div>
+      <div style="background:#13151B;border-radius:6px;padding:4px;box-shadow:inset 0 0 0 1px #1F222B;"><div style="height:36px;border-radius:4px;background:#191C24;display:flex;align-items:center;justify-content:center;color:#7E839A;font-size:10px;">▣</div><div style="font-size:7.5px;color:#E3E5EE;margin-top:3px;">field-notes.pdf</div><div style="font-size:6.5px;color:#6E7387;">82 KB</div></div>
+      <div style="background:#13151B;border-radius:6px;padding:4px;box-shadow:inset 0 0 0 1px #1F222B;"><div class="ph3" style="height:36px;border-radius:4px;filter:brightness(.92);"></div><div style="font-size:7.5px;color:#E3E5EE;margin-top:3px;">IMG_2418.jpg</div><div style="font-size:6.5px;color:#6E7387;">2.9 MB</div></div>
+      <div style="background:#13151B;border-radius:6px;padding:4px;box-shadow:inset 0 0 0 1px #1F222B;"><div style="height:36px;border-radius:4px;background:#191C24;display:flex;align-items:center;justify-content:center;color:#7E839A;font-size:10px;">◈</div><div style="font-size:7.5px;color:#E3E5EE;margin-top:3px;">backup.zip</div><div style="font-size:6.5px;color:#6E7387;">1.9 GB</div></div>
+      <div style="background:#13151B;border-radius:6px;padding:4px;box-shadow:inset 0 0 0 1px #2A2E3C,0 0 0 1px #5B6CFF55,0 0 12px #5B6CFF22;"><div class="ph" style="height:36px;border-radius:4px;filter:brightness(.92);"></div><div style="font-size:7.5px;color:#fff;margin-top:3px;">IMG_2420.jpg</div><div style="font-size:6.5px;color:#8B93FF;">↑ 78%</div></div>
+      <div style="background:#13151B;border-radius:6px;padding:4px;box-shadow:inset 0 0 0 1px #1F222B;"><div class="ph2" style="height:36px;border-radius:4px;filter:brightness(.92);"></div><div style="font-size:7.5px;color:#E3E5EE;margin-top:3px;">IMG_2419.jpg</div><div style="font-size:6.5px;color:#6E7387;">3.1 MB</div></div>
+    </div>
+    <div style="position:absolute;bottom:8px;left:16px;right:16px;background:#15171E;border-radius:7px;box-shadow:inset 0 0 0 1px #232734;padding:5px 9px;display:flex;gap:8px;align-items:center;">
+      <div style="font-size:7.5px;color:#C9CCD8;flex:1;">sunset-timelapse.mp4 <span style="color:#6E7387;">↑ 31% · 4.2 MB/s</span></div>
+      <div style="width:60px;height:3px;border-radius:2px;background:#232734;overflow:hidden;"><div style="width:31%;height:100%;background:#5B6CFF;"></div></div>
+    </div>
+  </div>
+</div></div><p class="tag" style="margin:6px 2px 2px;"><b>2 · Linear 工程克制</b> — 暗色分层灰,1px 内光边框,唯一彩色是靛蓝焦点光,密度更高。</p></div>
+
+<!-- ============ 3 · TRANSMIT 参照(右侧常驻 inspector) ============ -->
+<div class="cell"><div class="frame"><div style="display:flex;background:#FFFFFF;">
+  <div style="width:104px;background:#F0F0F3;border-right:1px solid #E2E2E7;padding:10px 8px;display:flex;flex-direction:column;gap:3px;">
+    <div style="font-size:8px;color:#86868c;padding:2px 6px 5px;">Bucketeer</div>
+    <div style="font-size:9px;color:#3a3a40;padding:3px 6px;">Dashboard</div>
+    <div style="font-size:9px;color:#1d1d1f;background:#DCDCF2;padding:3px 6px;border-radius:5px;font-weight:600;">All files</div>
+    <div style="font-size:9px;color:#3a3a40;padding:3px 6px;">Recent</div>
+    <div style="font-size:9px;color:#3a3a40;padding:3px 6px;">Settings</div>
+    <div style="flex:1"></div>
+    <div style="background:#fff;border-radius:7px;padding:6px;border:1px solid #E2E2E7;">
+      <div style="font-size:8px;font-weight:600;color:#2c2c31;">R2 主力</div>
+      <div style="font-size:7px;color:#86868c;">media</div>
+    </div>
+  </div>
+  <div style="flex:1;padding:8px 10px;border-right:1px solid #ECECF0;">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+      <div style="font-size:9px;font-weight:700;color:#1d1d1f;">photos / 2026-10</div>
+      <div style="flex:1"></div>
+      <div style="width:56px;height:13px;border-radius:6px;background:#F0F0F3;"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">
+      <div style="border-radius:7px;padding:3px;"><div class="ph" style="height:40px;border-radius:5px;"></div><div style="font-size:7px;color:#2c2c31;margin-top:2px;">IMG_2417.jpg</div></div>
+      <div style="border-radius:7px;padding:3px;background:#E3E7FB;outline:1.5px solid #4C5FD5;"><div class="ph2" style="height:40px;border-radius:5px;"></div><div style="font-size:7px;font-weight:600;color:#2B3FBD;margin-top:2px;">IMG_2420.jpg</div></div>
+      <div style="border-radius:7px;padding:3px;"><div class="ph3" style="height:40px;border-radius:5px;"></div><div style="font-size:7px;color:#2c2c31;margin-top:2px;">IMG_2419.jpg</div></div>
+      <div style="border-radius:7px;padding:3px;"><div class="ph2" style="height:40px;border-radius:5px;"></div><div style="font-size:7px;color:#2c2c31;margin-top:2px;">album-cover.png</div></div>
+      <div style="border-radius:7px;padding:3px;"><div class="ph" style="height:40px;border-radius:5px;"></div><div style="font-size:7px;color:#2c2c31;margin-top:2px;">IMG_2418.jpg</div></div>
+      <div style="border-radius:7px;padding:3px;"><div style="height:40px;border-radius:5px;background:#F0F0F3;display:flex;align-items:center;justify-content:center;color:#86868c;font-size:10px;">▶</div><div style="font-size:7px;color:#2c2c31;margin-top:2px;">sunrise-tl.mp4</div></div>
+    </div>
+  </div>
+  <div style="width:88px;background:#FAFAFC;padding:9px 8px;">
+    <div class="ph" style="height:44px;border-radius:6px;"></div>
+    <div style="font-size:8px;font-weight:700;color:#1d1d1f;margin-top:6px;">IMG_2420.jpg</div>
+    <div style="font-size:6.5px;color:#86868c;margin:1px 0 6px;">3.0 MB · uploaded</div>
+    <div style="border-top:1px solid #ECECF0;padding-top:5px;">
+      <div style="display:flex;justify-content:space-between;font-size:6.5px;"><span style="color:#86868c;">Size</span><span style="color:#2c2c31;font-weight:600;">3.0 MB</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:6.5px;margin-top:3px;"><span style="color:#86868c;">Type</span><span style="color:#2c2c31;font-weight:600;">JPEG</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:6.5px;margin-top:3px;"><span style="color:#86868c;">Modified</span><span style="color:#2c2c31;font-weight:600;">2h ago</span></div>
+    </div>
+    <div style="margin-top:8px;background:#2B3FBD;color:#fff;font-size:7px;font-weight:600;text-align:center;border-radius:5px;padding:4px;">Copy URL</div>
+    <div style="margin-top:8px;background:#fff;border:1px solid #E2E2E7;color:#2c2c31;font-size:7px;font-weight:600;text-align:center;border-radius:5px;padding:4px;">Download</div>
+  </div>
+</div></div><p class="tag" style="margin:6px 2px 2px;"><b>3 · Transmit 参照</b> — 预览变右侧常驻 inspector,网格让宽度;属性、Copy URL 常驻可见。</p></div>
+
+<!-- ============ 4 · RAYCAST 参照(暗色 + 键帽提示) ============ -->
+<div class="cell"><div class="frame"><div style="display:flex;background:#101114;">
+  <div style="width:110px;background:#131418;border-right:1px solid #1E1F26;padding:10px 8px;display:flex;flex-direction:column;gap:2px;">
+    <div style="font-size:8px;color:#5E6170;padding:2px 6px 6px;">BUCKETEER</div>
+    <div style="display:flex;align-items:center;font-size:9px;color:#C6C8D2;padding:4px 6px;"><span style="flex:1;">Dashboard</span><span style="font-size:6px;color:#5E6170;border:1px solid #262833;border-radius:3px;padding:0 3px;">⌘1</span></div>
+    <div style="display:flex;align-items:center;font-size:9px;color:#fff;background:#1D1F27;border-radius:5px;padding:4px 6px;"><span style="flex:1;font-weight:600;">All files</span><span style="font-size:6px;color:#7A7D8C;border:1px solid #2C2F3B;border-radius:3px;padding:0 3px;">⌘2</span></div>
+    <div style="display:flex;align-items:center;font-size:9px;color:#8C8F9E;padding:4px 6px;"><span style="flex:1;">Recent</span><span style="font-size:6px;color:#5E6170;border:1px solid #262833;border-radius:3px;padding:0 3px;">⌘3</span></div>
+    <div style="font-size:9px;color:#8C8F9E;padding:4px 6px;">Settings</div>
+    <div style="flex:1"></div>
+    <div style="background:#17181E;border-radius:6px;padding:6px;border:1px solid #23242E;">
+      <div style="font-size:8px;font-weight:600;color:#E4E5EC;">R2 主力</div>
+      <div style="font-size:7px;color:#5E6170;">media · 2.4 GB</div>
+    </div>
+  </div>
+  <div style="flex:1;padding:8px 10px;">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:7px;">
+      <div style="font-size:9px;font-weight:600;color:#C6C8D2;">media / photos / 2026-10</div>
+      <div style="flex:1"></div>
+      <div style="font-size:7px;color:#5E6170;border:1px solid #23242E;border-radius:4px;padding:2px 5px;">Grid <span style="color:#8C8F9E;">⌘G</span></div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;">
+      <div style="background:#141519;border:1px solid #1E1F26;border-radius:6px;padding:4px;"><div class="ph" style="height:36px;border-radius:4px;filter:brightness(.9);"></div><div style="font-size:7.5px;color:#E4E5EC;margin-top:3px;">IMG_2417.jpg</div></div>
+      <div style="background:#141519;border:1px solid #1E1F26;border-radius:6px;padding:4px;"><div style="height:36px;border-radius:4px;background:#1A1B22;display:flex;align-items:center;justify-content:center;color:#8C8F9E;font-size:10px;">▶</div><div style="font-size:7.5px;color:#E4E5EC;margin-top:3px;">sunrise-tl.mp4</div></div>
+      <div style="background:#141519;border:1px solid #1E1F26;border-radius:6px;padding:4px;"><div class="ph2" style="height:36px;border-radius:4px;filter:brightness(.9);"></div><div style="font-size:7.5px;color:#E4E5EC;margin-top:3px;">album-cover.png</div></div>
+      <div style="background:#1A1C24;border:1px solid #3A3F55;box-shadow:0 0 0 1px #6C79FF66,0 2px 10px rgba(108,121,255,.15);border-radius:6px;padding:4px;"><div class="ph" style="height:36px;border-radius:4px;filter:brightness(.9);"></div><div style="display:flex;align-items:center;font-size:7.5px;color:#fff;margin-top:3px;"><span style="flex:1;">IMG_2420.jpg</span><span style="font-size:6px;color:#7A7D8C;border:1px solid #2C2F3B;border-radius:3px;padding:0 3px;">Space</span></div></div>
+      <div style="background:#141519;border:1px solid #1E1F26;border-radius:6px;padding:4px;"><div class="ph3" style="height:36px;border-radius:4px;filter:brightness(.9);"></div><div style="font-size:7.5px;color:#E4E5EC;margin-top:3px;">IMG_2418.jpg</div></div>
+      <div style="background:#141519;border:1px solid #1E1F26;border-radius:6px;padding:4px;"><div style="height:36px;border-radius:4px;background:#1A1B22;display:flex;align-items:center;justify-content:center;color:#8C8F9E;font-size:10px;">◈</div><div style="font-size:7.5px;color:#E4E5EC;margin-top:3px;">backup.zip</div></div>
+      <div style="background:#141519;border:1px solid #1E1F26;border-radius:6px;padding:4px;"><div class="ph2" style="height:36px;border-radius:4px;filter:brightness(.9);"></div><div style="font-size:7.5px;color:#E4E5EC;margin-top:3px;">IMG_2419.jpg</div></div>
+      <div style="background:#141519;border:1px solid #1E1F26;border-radius:6px;padding:4px;"><div class="ph" style="height:36px;border-radius:4px;filter:brightness(.9);"></div><div style="font-size:7.5px;color:#E4E5EC;margin-top:3px;">IMG_2421.jpg</div></div>
+    </div>
+    <div style="position:absolute;bottom:8px;left:16px;right:16px;background:#17181E;border:1px solid #23242E;border-radius:8px;padding:5px 9px;display:flex;gap:8px;align-items:center;">
+      <div style="font-size:7.5px;color:#C6C8D2;flex:1;">IMG_2420.jpg <span style="color:#5E6170;">↑ 78%</span></div>
+      <span style="font-size:6px;color:#7A7D8C;border:1px solid #2C2F3B;border-radius:3px;padding:0 3px;">⌘. cancel</span>
+      <div style="width:52px;height:3px;border-radius:2px;background:#23242E;overflow:hidden;"><div style="width:78%;height:100%;background:#6C79FF;"></div></div>
+    </div>
+  </div>
+</div></div><p class="tag" style="margin:6px 2px 2px;"><b>4 · Raycast 参照</b> — 暗色浮层质感,导航与焦点行右侧全是键帽提示,键盘优先。</p></div>
+
+<!-- ============ 5 · SWISS 极致黑白(轮盘 web #19) ============ -->
+<div class="cell"><div class="frame"><div style="display:flex;background:#0A0A0A;">
+  <div style="width:106px;border-right:1px solid #262626;padding:10px 0;display:flex;flex-direction:column;gap:0;">
+    <div style="font-size:8px;font-weight:700;color:#fff;letter-spacing:1px;padding:0 10px 8px;">BUCKETEER</div>
+    <div style="font-size:9px;color:#8A8A8A;padding:4px 10px;border-left:2px solid transparent;">DASHBOARD</div>
+    <div style="font-size:9px;color:#fff;padding:4px 10px;border-left:2px solid #fff;font-weight:700;">ALL FILES</div>
+    <div style="font-size:9px;color:#8A8A8A;padding:4px 10px;border-left:2px solid transparent;">RECENT FILES</div>
+    <div style="font-size:9px;color:#8A8A8A;padding:4px 10px;border-left:2px solid transparent;">SETTINGS</div>
+    <div style="flex:1"></div>
+    <div style="border-top:1px solid #262626;padding:8px 10px;">
+      <div style="font-size:8px;font-weight:700;color:#fff;">R2 主力</div>
+      <div style="font-size:7px;color:#8A8A8A;margin-top:1px;">media · 2.4 GB</div>
+      <div style="font-size:7px;color:#4D8DFF;margin-top:3px;text-decoration:underline;">Disconnect</div>
+    </div>
+  </div>
+  <div style="flex:1;padding:8px 10px;">
+    <div style="display:flex;align-items:center;margin-bottom:6px;border-bottom:1px solid #262626;padding-bottom:5px;">
+      <div style="font-size:9px;font-weight:700;color:#fff;">media / photos / 2026-10</div>
+      <div style="flex:1"></div>
+      <div style="font-size:7px;color:#8A8A8A;">12 ITEMS · 2.4 GB</div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0;">
+      <div style="padding:4px;border:1px solid #1A1A1A;margin:-1px 0 0 -1px;"><div class="ph" style="height:34px;filter:brightness(.85);"></div><div style="font-size:7.5px;color:#fff;margin-top:3px;">IMG_2417.jpg</div><div style="font-size:6.5px;color:#8A8A8A;font-family:'SF Mono',monospace;">3.4 MB · 2H</div></div>
+      <div style="padding:4px;border:1px solid #1A1A1A;margin:-1px 0 0 -1px;"><div style="height:34px;background:#141414;display:flex;align-items:center;justify-content:center;color:#8A8A8A;font-size:10px;">▶</div><div style="font-size:7.5px;color:#fff;margin-top:3px;">sunrise-tl.mp4</div><div style="font-size:6.5px;color:#8A8A8A;font-family:'SF Mono',monospace;">482 MB</div></div>
+      <div style="padding:4px;border:1px solid #1A1A1A;margin:-1px 0 0 -1px;"><div class="ph2" style="height:34px;filter:brightness(.85);"></div><div style="font-size:7.5px;color:#fff;margin-top:3px;">album-cover.png</div><div style="font-size:6.5px;color:#8A8A8A;font-family:'SF Mono',monospace;">1.1 MB</div></div>
+      <div style="padding:4px;border:1px solid #1A1A1A;margin:-1px 0 0 -1px;background:#fff;"><div class="ph3" style="height:34px;"></div><div style="font-size:7.5px;color:#000;font-weight:700;margin-top:3px;">IMG_2420.jpg</div><div style="font-size:6.5px;color:#444;font-family:'SF Mono',monospace;">3.0 MB · ↑78%</div></div>
+      <div style="padding:4px;border:1px solid #1A1A1A;margin:-1px 0 0 -1px;"><div style="height:34px;background:#141414;display:flex;align-items:center;justify-content:center;color:#8A8A8A;font-size:10px;">▣</div><div style="font-size:7.5px;color:#fff;margin-top:3px;">field-notes.pdf</div><div style="font-size:6.5px;color:#8A8A8A;font-family:'SF Mono',monospace;">82 KB</div></div>
+      <div style="padding:4px;border:1px solid #1A1A1A;margin:-1px 0 0 -1px;"><div class="ph" style="height:34px;filter:brightness(.85);"></div><div style="font-size:7.5px;color:#fff;margin-top:3px;">IMG_2418.jpg</div><div style="font-size:6.5px;color:#8A8A8A;font-family:'SF Mono',monospace;">2.9 MB</div></div>
+      <div style="padding:4px;border:1px solid #1A1A1A;margin:-1px 0 0 -1px;"><div class="ph2" style="height:34px;filter:brightness(.85);"></div><div style="font-size:7.5px;color:#fff;margin-top:3px;">IMG_2419.jpg</div><div style="font-size:6.5px;color:#8A8A8A;font-family:'SF Mono',monospace;">3.1 MB</div></div>
+      <div style="padding:4px;border:1px solid #1A1A1A;margin:-1px 0 0 -1px;"><div style="height:34px;background:#141414;display:flex;align-items:center;justify-content:center;color:#8A8A8A;font-size:10px;">◈</div><div style="font-size:7.5px;color:#fff;margin-top:3px;">backup.zip</div><div style="font-size:6.5px;color:#8A8A8A;font-family:'SF Mono',monospace;">1.9 GB</div></div>
+    </div>
+    <div style="position:absolute;bottom:8px;left:14px;right:14px;background:#fff;color:#000;display:flex;gap:8px;align-items:center;padding:5px 9px;">
+      <div style="font-size:7.5px;font-weight:700;flex:1;">IMG_2420.jpg</div>
+      <div style="font-size:7px;font-family:'SF Mono',monospace;">↑ 78% · 4.2 MB/S</div>
+      <div style="width:60px;height:4px;background:#D5D5D5;"><div style="width:78%;height:100%;background:#000;"></div></div>
+    </div>
+  </div>
+</div></div><p class="tag" style="margin:6px 2px 2px;"><b>5 · Swiss 极致黑白</b>(轮盘 web #19)— 纯黑零圆角,1px 格线,mono 数据列,唯一彩色是链接蓝。</p></div>
+
+<!-- ============ 6 · SATO 极简符号(轮盘 east #11) ============ -->
+<div class="cell"><div class="frame"><div style="display:flex;background:#fff;">
+  <div style="width:120px;background:#E0342C;color:#fff;display:flex;flex-direction:column;padding:12px 10px;">
+    <div style="font-size:8px;font-weight:800;letter-spacing:1px;opacity:.75;">BUCKETEER</div>
+    <div style="margin:10px 0 2px;font-size:20px;font-weight:900;line-height:1.05;">R2<br>主力</div>
+    <div style="font-size:7.5px;opacity:.8;margin-top:3px;">media · 2.4 GB</div>
+    <div style="flex:1"></div>
+    <div style="font-size:9px;padding:5px 0;border-top:1px solid rgba(255,255,255,.35);">Dashboard</div>
+    <div style="font-size:9px;padding:5px 0;font-weight:800;background:#fff;color:#E0342C;padding-left:6px;">All files</div>
+    <div style="font-size:9px;padding:5px 0;">Recent</div>
+    <div style="font-size:9px;padding:5px 0;">Settings</div>
+  </div>
+  <div style="flex:1;padding:9px 11px;">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+      <div style="font-size:11px;font-weight:900;color:#111;">photos / 2026-10</div>
+      <div style="flex:1"></div>
+      <div style="width:8px;height:8px;background:#111;border-radius:2px;"></div>
+      <div style="width:8px;height:8px;border:1.5px solid #111;border-radius:50%;"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
+      <div><div class="ph" style="height:38px;"></div><div style="font-size:7.5px;font-weight:700;color:#111;margin-top:3px;">IMG_2417.jpg</div></div>
+      <div><div style="height:38px;background:#111;display:flex;align-items:center;justify-content:center;"><div style="width:0;height:0;border-left:9px solid #fff;border-top:6px solid transparent;border-bottom:6px solid transparent;"></div></div><div style="font-size:7.5px;font-weight:700;color:#111;margin-top:3px;">sunrise-tl.mp4</div></div>
+      <div><div class="ph2" style="height:38px;"></div><div style="font-size:7.5px;font-weight:700;color:#111;margin-top:3px;">album-cover.png</div></div>
+      <div><div style="height:38px;border:2px solid #111;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#111;">P</div><div style="font-size:7.5px;font-weight:700;color:#111;margin-top:3px;">field-notes.pdf</div></div>
+      <div><div class="ph3" style="height:38px;"></div><div style="font-size:7.5px;font-weight:700;color:#111;margin-top:3px;">IMG_2418.jpg</div></div>
+      <div><div style="height:38px;border:2px solid #111;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#111;">Z</div><div style="font-size:7.5px;font-weight:700;color:#111;margin-top:3px;">backup.zip</div></div>
+      <div><div class="ph" style="height:38px;outline:3px solid #E0342C;"></div><div style="font-size:7.5px;font-weight:800;color:#E0342C;margin-top:3px;">IMG_2420.jpg</div></div>
+      <div><div class="ph2" style="height:38px;"></div><div style="font-size:7.5px;font-weight:700;color:#111;margin-top:3px;">IMG_2419.jpg</div></div>
+    </div>
+    <div style="position:absolute;bottom:8px;left:14px;right:14px;background:#111;color:#fff;padding:6px 10px;display:flex;gap:8px;align-items:center;">
+      <div style="font-size:7.5px;font-weight:700;flex:1;">IMG_2420.jpg <span style="opacity:.6;">↑ 78%</span></div>
+      <div style="width:56px;height:5px;background:#333;"><div style="width:78%;height:100%;background:#E0342C;"></div></div>
+    </div>
+  </div>
+</div></div><p class="tag" style="margin:6px 2px 2px;"><b>6 · 佐藤可士和极简符号</b>(轮盘 east #11)— 白底 + 巨型红场当桶头,类型是几何符号,特粗黑体。</p></div>
+
+</div>
+</body>
+</html>

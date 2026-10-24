@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bucketeer — media / photos / 2026-10</title>
+<style>
+  :root {
+    --accent: #E86A2C;
+    --accent-deep: #BE4E17;
+    --accent-soft: #FBE9DE;
+    --ink: #26211B;
+    --ink-2: #665D53;
+    --ink-3: #766D62;
+    --hairline: #DCD5CA;
+    --sidebar-bg: #F3EFE8;
+    --content-bg: #FAF8F4;
+    --card-bg: #FFFFFF;
+    --mono: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", "PingFang SC", sans-serif;
+    background: radial-gradient(120% 90% at 50% 0%, #D9D6D0 0%, #C9C5BE 62%, #BBB7AF 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---------- window shell ---------- */
+  .window {
+    width: 1180px;
+    height: 820px;
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--content-bg);
+    box-shadow:
+      0 0 0 1px rgba(50, 42, 32, 0.28),
+      0 1px 2px rgba(50, 42, 32, 0.22),
+      0 24px 60px rgba(40, 33, 24, 0.38),
+      0 60px 120px rgba(40, 33, 24, 0.28);
+    display: flex;
+    flex-direction: column;
+    animation: window-in .6s cubic-bezier(.2,.7,.25,1) backwards;
+  }
+  @keyframes window-in {
+    from { opacity: 0; transform: translateY(14px) scale(.985); }
+    to   { opacity: 1; transform: none; }
+  }
+
+  .titlebar {
+    height: 44px;
+    flex: none;
+    background: linear-gradient(180deg, #F7F4EF, #EFEAE2);
+    border-bottom: 1px solid var(--hairline);
+    display: flex;
+    align-items: center;
+    position: relative;
+  }
+  .lights { display: flex; gap: 8px; margin-left: 15px; }
+  .light { width: 12px; height: 12px; border-radius: 50%; box-shadow: inset 0 0 0 .5px rgba(0,0,0,.18); }
+  .light.r { background: #FF5F57; }
+  .light.y { background: #FEBC2E; }
+  .light.g { background: #28C840; }
+  .titlebar-title {
+    position: absolute; left: 0; right: 0; text-align: center;
+    font-size: 13px; font-weight: 600; color: var(--ink-2);
+    letter-spacing: .1px; pointer-events: none;
+  }
+
+  .app { flex: 1; display: flex; min-height: 0; }
+
+  /* ---------- sidebar ---------- */
+  .sidebar {
+    width: 224px;
+    flex: none;
+    background: var(--sidebar-bg);
+    border-right: 1px solid var(--hairline);
+    display: flex;
+    flex-direction: column;
+    padding: 14px 12px 14px;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 9px;
+    padding: 4px 8px 14px;
+  }
+  .brand-mark {
+    width: 28px; height: 28px; border-radius: 8px;
+    background: linear-gradient(180deg, #F0793F, #D95A1D);
+    display: flex; align-items: center; justify-content: center;
+    color: #fff;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.35), 0 1px 2px rgba(190,78,23,.4);
+  }
+  .brand-name { font-size: 15px; font-weight: 700; letter-spacing: -.1px; }
+
+  .nav { display: flex; flex-direction: column; gap: 2px; }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    height: 34px; padding: 0 9px;
+    border-radius: 8px;
+    font-size: 14px; font-weight: 500; color: var(--ink-2);
+    text-decoration: none;
+    transition: background .13s ease, color .13s ease;
+  }
+  .nav-item svg { flex: none; }
+  .nav-item:hover { background: rgba(38,33,27,.06); color: var(--ink); }
+  .nav-item.active {
+    background: linear-gradient(180deg, #EF6D30, #DD5A1E);
+    color: #fff; font-weight: 600;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.28), 0 1px 3px rgba(190,78,23,.35);
+  }
+  .nav-item.active:hover { background: linear-gradient(180deg, #F07433, #E05F20); }
+
+  .sidebar-spacer { flex: 1; }
+
+  /* the disk — the one skeuomorphic object on screen */
+  .disk {
+    position: relative;
+    border-radius: 14px;
+    padding: 13px 14px 12px;
+    background:
+      radial-gradient(140% 90% at 18% 0%, rgba(255,255,255,.85) 0%, rgba(255,255,255,0) 46%),
+      linear-gradient(180deg, #FBF8F2 0%, #F0EADD 58%, #E7DFD0 100%);
+    border: 1px solid #D5CCBC;
+    box-shadow:
+      inset 0 1px 0 #FFFFFF,
+      inset 0 -1px 0 rgba(122, 104, 78, .22),
+      0 1px 3px rgba(74, 62, 44, .16);
+  }
+  .screw {
+    position: absolute; width: 7px; height: 7px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #EFE9DD, #CFC5B2);
+    box-shadow: inset 0 .5px 1px rgba(90, 76, 54, .55), 0 1px 0 rgba(255,255,255,.7);
+  }
+  .screw::after {
+    content: ""; position: absolute; left: 1px; right: 1px; top: 3px; height: 1px;
+    background: rgba(104, 88, 62, .65); transform: rotate(38deg); border-radius: 1px;
+  }
+  .screw.tl { top: 7px; left: 7px; }
+  .screw.tr { top: 7px; right: 7px; }
+  .screw.bl { bottom: 7px; left: 7px; }
+  .screw.br { bottom: 7px; right: 7px; }
+
+  .disk-head { display: flex; align-items: center; gap: 10px; }
+  .platter { flex: none; color: var(--accent-deep); }
+  .disk-name { font-size: 14px; font-weight: 700; letter-spacing: -.1px; }
+  .disk-sub { font-size: 12px; color: var(--ink-2); margin-top: 1px; font-family: var(--mono); }
+  .led {
+    margin-left: auto; width: 8px; height: 8px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #FFB68C, var(--accent) 62%);
+    box-shadow: 0 0 6px rgba(232, 106, 44, .85), inset 0 0 1px rgba(120, 40, 0, .4);
+  }
+  .disk-bar {
+    margin-top: 11px; height: 6px; border-radius: 4px;
+    background: rgba(112, 94, 68, .18);
+    box-shadow: inset 0 1px 1.5px rgba(90, 74, 50, .3);
+    overflow: hidden;
+  }
+  .disk-bar i {
+    display: block; height: 100%; width: 58%; border-radius: 4px;
+    background: linear-gradient(180deg, #F58B52, #DE5F20);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.4);
+  }
+  .disk-foot {
+    margin-top: 8px; display: flex; justify-content: space-between;
+    font-size: 12px; color: var(--ink-2);
+  }
+  .disk-foot .mono { font-family: var(--mono); color: var(--ink-2); }
+
+  /* ---------- content ---------- */
+  .content {
+    flex: 1; min-width: 0;
+    display: flex; flex-direction: column;
+    padding: 16px 24px 0;
+    position: relative;
+  }
+  .content-head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px;
+    animation: fade-in .5s ease .1s backwards;
+  }
+  .crumbs { display: flex; align-items: baseline; gap: 8px; font-size: 16px; min-width: 0; }
+  .crumb { color: var(--ink-3); text-decoration: none; transition: color .12s ease; white-space: nowrap; }
+  .crumb:hover { color: var(--accent-deep); text-decoration: underline; text-underline-offset: 3px; }
+  .crumb-sep { color: #C6BEAF; font-size: 14px; }
+  .crumb-here { color: var(--ink); font-weight: 700; letter-spacing: -.2px; white-space: nowrap; }
+
+  .toolbar { display: flex; align-items: center; gap: 8px; flex: none; }
+  .filter-box {
+    display: flex; align-items: center; gap: 7px;
+    width: 178px; height: 32px; padding: 0 10px;
+    background: #fff; border: 1px solid var(--hairline); border-radius: 8px;
+    color: var(--ink-3);
+    transition: border-color .13s ease, box-shadow .13s ease;
+  }
+  .filter-box:hover { border-color: #C4BBA9; }
+  .filter-box:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(232,106,44,.15); }
+  .filter-box input {
+    border: none; outline: none; background: transparent;
+    font: inherit; font-size: 13px; color: var(--ink); width: 100%;
+  }
+  .filter-box input::placeholder { color: #A79D90; }
+
+  .chip {
+    display: flex; align-items: center; gap: 6px;
+    height: 32px; padding: 0 10px;
+    background: #fff; border: 1px solid var(--hairline); border-radius: 8px;
+    cursor: pointer;
+    transition: border-color .13s ease, background .13s ease;
+  }
+  .chip:hover { border-color: #C4BBA9; background: #FDFCF9; }
+  .chip:active { background: #F5F1E9; }
+  .chip .k { font-size: 12px; color: var(--ink-3); }
+  .chip .v { font-size: 13px; font-weight: 600; color: var(--ink); }
+  .chip svg { color: #A79D90; }
+
+  .segmented {
+    display: flex; align-items: center;
+    background: #fff; border: 1px solid var(--hairline); border-radius: 8px;
+    padding: 2px; gap: 2px; height: 32px;
+  }
+  .seg-btn {
+    width: 30px; height: 26px; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    color: #A79D90; cursor: pointer; border: none; background: transparent;
+    transition: background .13s ease, color .13s ease;
+  }
+  .seg-btn:hover { color: var(--ink-2); background: rgba(38,33,27,.05); }
+  .seg-btn.on { background: var(--accent-soft); color: var(--accent-deep); }
+
+  .summary {
+    margin: 12px 0 10px;
+    font-size: 12px; color: var(--ink-2);
+    display: flex; align-items: center; gap: 8px;
+    animation: fade-in .5s ease .16s backwards;
+  }
+  .summary .dot { width: 3px; height: 3px; border-radius: 50%; background: #C6BEAF; }
+  .sync-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    color: var(--ink-2);
+  }
+  .sync-badge i {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: #4CA163; box-shadow: 0 0 4px rgba(76,161,99,.7);
+  }
+
+  /* ---------- grid ---------- */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
+    padding-bottom: 96px;
+    overflow: hidden;
+  }
+  .card {
+    background: var(--card-bg);
+    border: 1px solid #E5DFD3;
+    border-radius: 14px;
+    padding: 7px 7px 9px;
+    cursor: pointer;
+    box-shadow: 0 1px 2px rgba(74, 62, 44, .06);
+    transition: transform .15s cubic-bezier(.2,.7,.3,1), box-shadow .15s ease, border-color .15s ease;
+    animation: rise .5s cubic-bezier(.2,.7,.3,1) backwards;
+  }
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: none; }
+  }
+  .card:hover {
+    transform: translateY(-2px);
+    border-color: #D2C8B5;
+    box-shadow: 0 6px 18px rgba(74, 62, 44, .14);
+  }
+  .thumb {
+    height: 122px;
+    border-radius: 9px;
+    overflow: hidden;
+    background: #EAE4D9;
+    position: relative;
+  }
+  .thumb img {
+    width: 100%; height: 100%; object-fit: cover; display: block;
+  }
+  .thumb .kind {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .tile-media { background: linear-gradient(160deg, #FBEEE4, #F4DECB); color: #B45217; }
+  .tile-doc   { background: linear-gradient(160deg, #EEF0F2, #DEE2E6); color: #46525E; }
+  .tile-zip   { background: linear-gradient(160deg, #F4EEE1, #E8DEC8); color: #857045; }
+  .card-meta { padding: 8px 3px 0; }
+  .card-name {
+    font-size: 14px; font-weight: 560; color: var(--ink);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    letter-spacing: -.1px;
+  }
+  .card-size { margin-top: 2px; font-size: 12px; color: var(--ink-3); font-family: var(--mono); }
+
+  /* uploading + selected card */
+  .card.uploading { cursor: default; }
+  .card.uploading:hover { transform: none; }
+  .card.selected {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent), 0 8px 22px rgba(232, 106, 44, .22);
+  }
+  .thumb .scrim {
+    position: absolute; inset: 0;
+    background: rgba(28, 20, 12, .53);
+  }
+  .ring { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+  .ring svg { transform: rotate(-90deg); }
+  .ring .pct {
+    position: absolute; font-size: 12px; font-weight: 700; color: #fff;
+    letter-spacing: .2px;
+  }
+  .check-badge {
+    position: absolute; top: 12px; right: 12px;
+    width: 22px; height: 22px; border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid #fff;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff;
+    box-shadow: 0 1px 4px rgba(120, 50, 10, .4);
+  }
+  .up-flag {
+    display: inline-flex; align-items: center; gap: 5px;
+    color: var(--accent-deep); font-weight: 600;
+  }
+
+  /* ---------- transfer dock ---------- */
+  .dock {
+    position: absolute;
+    left: 24px; right: 24px; bottom: 14px;
+    display: flex; align-items: center; gap: 14px;
+    padding: 9px 14px;
+    background: rgba(253, 251, 247, .94);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+    border: 1px solid rgba(122, 104, 78, .22);
+    border-radius: 16px;
+    box-shadow:
+      inset 0 1px 0 #FFFFFF,
+      0 2px 6px rgba(50, 40, 28, .12),
+      0 14px 34px rgba(50, 40, 28, .20);
+    animation: rise .5s cubic-bezier(.2,.7,.3,1) .55s backwards;
+  }
+  .dock-lead {
+    display: flex; align-items: center; gap: 8px;
+    padding-right: 12px; border-right: 1px solid #E7E0D2;
+    color: var(--ink-2);
+  }
+  .dock-lead .t { font-size: 13px; font-weight: 700; color: var(--ink); }
+  .dock-count {
+    font-size: 12px; font-weight: 700; color: #A84310;
+    background: var(--accent-soft);
+    border-radius: 10px; padding: 1px 8px;
+  }
+  .dock-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 5px 10px 5px 6px;
+    border-radius: 11px;
+    cursor: pointer;
+    transition: background .13s ease;
+    min-width: 0;
+  }
+  .dock-item:hover { background: rgba(38, 33, 27, .05); }
+  .dock-thumb {
+    width: 38px; height: 38px; border-radius: 9px; overflow: hidden;
+    position: relative; flex: none;
+    background: #EAE4D9;
+    box-shadow: inset 0 0 0 1px rgba(60, 48, 32, .14);
+  }
+  .dock-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .dock-thumb .mini-kind {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  }
+  .dock-info { min-width: 0; }
+  .dock-name {
+    font-size: 14px; font-weight: 600; color: var(--ink);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    max-width: 190px;
+  }
+  .dock-bar {
+    margin-top: 5px; width: 150px; height: 5px; border-radius: 3px;
+    background: #E9E2D4; overflow: hidden;
+  }
+  .dock-bar i {
+    display: block; height: 100%; border-radius: 3px;
+    background: linear-gradient(90deg, #F0824A, #DE5F20);
+  }
+  .dock-pct {
+    font-size: 12px; font-weight: 700; color: var(--accent-deep);
+    font-family: var(--mono); flex: none;
+  }
+  .dock-up { color: var(--accent-deep); flex: none; }
+
+  @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="window">
+  <!-- title bar -->
+  <div class="titlebar">
+    <div class="lights">
+      <span class="light r"></span><span class="light y"></span><span class="light g"></span>
+    </div>
+    <div class="titlebar-title">Bucketeer — R2 主力 / media</div>
+  </div>
+
+  <div class="app">
+    <!-- sidebar -->
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-mark">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4.6 7.5h14.8l-1.5 10.6a2.2 2.2 0 0 1-2.18 1.9H8.28a2.2 2.2 0 0 1-2.18-1.9L4.6 7.5z"/>
+            <path d="M6.2 7.2a5.8 4.1 0 0 1 11.6 0"/>
+          </svg>
+        </span>
+        <span class="brand-name">Bucketeer</span>
+      </div>
+
+      <nav class="nav">
+        <a class="nav-item" href="#">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3.5" y="3.5" width="7" height="7" rx="1.8"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.8"/>
+            <rect x="3.5" y="13.5" width="7" height="7" rx="1.8"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.8"/>
+          </svg>
+          Dashboard
+        </a>
+        <a class="nav-item active" href="#">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 8.2A2.2 2.2 0 0 1 5.2 6h3.9l2 2.2h7.7A2.2 2.2 0 0 1 21 10.4v6.4a2.2 2.2 0 0 1-2.2 2.2H5.2A2.2 2.2 0 0 1 3 16.8V8.2z"/>
+          </svg>
+          All files
+        </a>
+        <a class="nav-item" href="#">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="8.2"/><path d="M12 7.4v4.8l3.1 1.9"/>
+          </svg>
+          Recent files
+        </a>
+        <a class="nav-item" href="#">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 8h7.4"/><path d="M16.8 8H20"/><circle cx="14.2" cy="8" r="2.3"/>
+            <path d="M4 16h3.2"/><path d="M12.6 16H20"/><circle cx="10" cy="16" r="2.3"/>
+          </svg>
+          Settings
+        </a>
+      </nav>
+
+      <div class="sidebar-spacer"></div>
+
+      <!-- the disk: the single skeuomorphic object -->
+      <div class="disk">
+        <span class="screw tl"></span><span class="screw tr"></span>
+        <span class="screw bl"></span><span class="screw br"></span>
+        <div class="disk-head">
+          <svg class="platter" width="30" height="30" viewBox="0 0 30 30" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+            <circle cx="15" cy="15" r="11.2"/>
+            <circle cx="15" cy="15" r="2.4"/>
+            <path d="M6.6 11.5a9.4 9.4 0 0 1 3.2-3.6" opacity=".55"/>
+            <path d="M23.4 18.5a9.4 9.4 0 0 1-3.2 3.6" opacity=".55"/>
+          </svg>
+          <div>
+            <div class="disk-name">R2 主力</div>
+            <div class="disk-sub">media · 2.4 GB</div>
+          </div>
+          <span class="led"></span>
+        </div>
+        <div class="disk-bar"><i></i></div>
+        <div class="disk-foot">
+          <span>Cloudflare R2</span>
+          <span class="mono">us-east</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- content -->
+    <main class="content">
+      <div class="content-head">
+        <nav class="crumbs">
+          <a class="crumb" href="#">media</a>
+          <span class="crumb-sep">/</span>
+          <a class="crumb" href="#">photos</a>
+          <span class="crumb-sep">/</span>
+          <span class="crumb-here">2026-10</span>
+        </nav>
+        <div class="toolbar">
+          <label class="filter-box">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+              <circle cx="11" cy="11" r="6.2"/><path d="M20 20l-3.4-3.4"/>
+            </svg>
+            <input type="text" placeholder="过滤文件">
+          </label>
+          <button class="chip">
+            <span class="k">类型</span><span class="v">All</span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9.5l6 6 6-6"/></svg>
+          </button>
+          <button class="chip">
+            <span class="k">排序</span><span class="v">Date</span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9.5l6 6 6-6"/></svg>
+          </button>
+          <div class="segmented">
+            <button class="seg-btn on" title="Grid">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="4" y="4" width="6.6" height="6.6" rx="1.6"/><rect x="13.4" y="4" width="6.6" height="6.6" rx="1.6"/>
+                <rect x="4" y="13.4" width="6.6" height="6.6" rx="1.6"/><rect x="13.4" y="13.4" width="6.6" height="6.6" rx="1.6"/>
+              </svg>
+            </button>
+            <button class="seg-btn" title="List">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round">
+                <path d="M4 6.5h16"/><path d="M4 12h16"/><path d="M4 17.5h16"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="summary">
+        <span><strong style="color:var(--ink);font-weight:650;">12 items</strong></span>
+        <span class="dot"></span>
+        <span>2.4 GB</span>
+        <span class="dot"></span>
+        <span class="sync-badge"><i></i>上次同步 2 分钟前</span>
+      </div>
+
+      <div class="grid">
+        <!-- 1 -->
+        <figure class="card" style="animation-delay:.05s">
+          <div class="thumb"><img src="https://picsum.photos/seed/11/240/240" alt="IMG_2417.jpg"></div>
+          <figcaption class="card-meta">
+            <div class="card-name">IMG_2417.jpg</div>
+            <div class="card-size">3.4 MB</div>
+          </figcaption>
+        </figure>
+        <!-- 2 -->
+        <figure class="card" style="animation-delay:.09s">
+          <div class="thumb">
+            <div class="kind tile-media">
+              <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2.8" y="5.5" width="18.4" height="13" rx="2.6"/>
+                <path d="M10.2 9.7v4.6l4-2.3z" fill="currentColor" stroke="none"/>
+              </svg>
+            </div>
+          </div>
+          <figcaption class="card-meta">
+            <div class="card-name">sunrise-timelapse.mp4</div>
+            <div class="card-size">482 MB</div>
+          </figcaption>
+        </figure>
+        <!-- 3 -->
+        <figure class="card" style="animation-delay:.13s">
+          <div class="thumb"><img src="https://picsum.photos/seed/13/240/240" alt="album-cover.png"></div>
+          <figcaption class="card-meta">
+            <div class="card-name">album-cover.png</div>
+            <div class="card-size">1.1 MB</div>
+          </figcaption>
+        </figure>
+        <!-- 4 -->
+        <figure class="card" style="animation-delay:.17s">
+          <div class="thumb">
+            <div class="kind tile-doc">
+              <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M7 3h7l4 4v13a1.6 1.6 0 0 1-1.6 1.6H7A1.6 1.6 0 0 1 5.4 20V4.6A1.6 1.6 0 0 1 7 3z"/>
+                <path d="M14 3v4h4"/><path d="M9 13h6"/><path d="M9 16.4h6"/>
+              </svg>
+            </div>
+          </div>
+          <figcaption class="card-meta">
+            <div class="card-name">field-notes.pdf</div>
+            <div class="card-size">82 KB</div>
+          </figcaption>
+        </figure>
+        <!-- 5 -->
+        <figure class="card" style="animation-delay:.21s">
+          <div class="thumb">
+            <div class="kind tile-zip">
+              <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M7 3h7l4 4v13a1.6 1.6 0 0 1-1.6 1.6H7A1.6 1.6 0 0 1 5.4 20V4.6A1.6 1.6 0 0 1 7 3z"/>
+                <path d="M14 3v4h4"/>
+                <path d="M11.9 8.2v1.6"/><path d="M11.9 11.4v1.6"/><path d="M11.9 14.6v1.6"/>
+                <path d="M10.6 17.6h2.6l-1.3 2.4z" fill="currentColor" stroke="none"/>
+              </svg>
+            </div>
+          </div>
+          <figcaption class="card-meta">
+            <div class="card-name">backup-2026-10.zip</div>
+            <div class="card-size">1.9 GB</div>
+          </figcaption>
+        </figure>
+        <!-- 6 -->
+        <figure class="card" style="animation-delay:.25s">
+          <div class="thumb">
+            <div class="kind tile-media">
+              <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+                <path d="M4 10.5v3"/><path d="M7.5 8v8"/><path d="M11 5.5v13"/><path d="M14.5 8.5v7"/><path d="M18 10v4"/><path d="M20.5 11.5v1"/>
+              </svg>
+            </div>
+          </div>
+          <figcaption class="card-meta">
+            <div class="card-name">podcast-ep-42.m4a</div>
+            <div class="card-size">36 MB</div>
+          </figcaption>
+        </figure>
+        <!-- 7 -->
+        <figure class="card" style="animation-delay:.29s">
+          <div class="thumb"><img src="https://picsum.photos/seed/15/240/240" alt="IMG_2418.jpg"></div>
+          <figcaption class="card-meta">
+            <div class="card-name">IMG_2418.jpg</div>
+            <div class="card-size">2.9 MB</div>
+          </figcaption>
+        </figure>
+        <!-- 8 -->
+        <figure class="card" style="animation-delay:.33s">
+          <div class="thumb">
+            <div class="kind tile-zip">
+              <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M5.4 16.6C7.6 8.4 14.6 7.4 18.6 12"/>
+                <rect x="2.6" y="14.2" width="4.4" height="4.4" rx="1.1" fill="currentColor" stroke="none"/>
+                <rect x="17" y="9.6" width="4.4" height="4.4" rx="1.1" fill="currentColor" stroke="none"/>
+                <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/>
+              </svg>
+            </div>
+          </div>
+          <figcaption class="card-meta">
+            <div class="card-name">logo-dark.svg</div>
+            <div class="card-size">14 KB</div>
+          </figcaption>
+        </figure>
+        <!-- 9 -->
+        <figure class="card" style="animation-delay:.37s">
+          <div class="thumb">
+            <div class="kind tile-doc">
+              <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M7 3h7l4 4v13a1.6 1.6 0 0 1-1.6 1.6H7A1.6 1.6 0 0 1 5.4 20V4.6A1.6 1.6 0 0 1 7 3z"/>
+                <path d="M14 3v4h4"/><path d="M9 13h6"/><path d="M9 16.4h3.6"/>
+              </svg>
+            </div>
+          </div>
+          <figcaption class="card-meta">
+            <div class="card-name">contract-v2.docx</div>
+            <div class="card-size">210 KB</div>
+          </figcaption>
+        </figure>
+        <!-- 10 -->
+        <figure class="card" style="animation-delay:.41s">
+          <div class="thumb"><img src="https://picsum.photos/seed/17/240/240" alt="IMG_2419.jpg"></div>
+          <figcaption class="card-meta">
+            <div class="card-name">IMG_2419.jpg</div>
+            <div class="card-size">3.1 MB</div>
+          </figcaption>
+        </figure>
+        <!-- 11 -->
+        <figure class="card" style="animation-delay:.45s">
+          <div class="thumb"><img src="https://picsum.photos/seed/19/240/240" alt="waveform.png"></div>
+          <figcaption class="card-meta">
+            <div class="card-name">waveform.png</div>
+            <div class="card-size">640 KB</div>
+          </figcaption>
+        </figure>
+        <!-- 12 -->
+        <figure class="card" style="animation-delay:.49s">
+          <div class="thumb">
+            <div class="kind tile-doc">
+              <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2.6" y="5.4" width="18.8" height="13.2" rx="2.4"/>
+                <path d="M6.4 14.8V9.2l2.7 3.2 2.7-3.2v5.6"/>
+                <path d="M16.4 9.4v4.8"/><path d="M14.4 12.2l2 2.2 2-2.2"/>
+              </svg>
+            </div>
+          </div>
+          <figcaption class="card-meta">
+            <div class="card-name">readme.md</div>
+            <div class="card-size">4 KB</div>
+          </figcaption>
+        </figure>
+        <!-- 13 · uploading + selected -->
+        <figure class="card uploading selected" style="animation-delay:.53s">
+          <div class="thumb">
+            <img src="https://picsum.photos/seed/21/240/240" alt="IMG_2420.jpg">
+            <div class="scrim"></div>
+            <div class="ring">
+              <svg width="52" height="52" viewBox="0 0 52 52" fill="none">
+                <circle cx="26" cy="26" r="20" stroke="rgba(255,255,255,.35)" stroke-width="4"/>
+                <circle cx="26" cy="26" r="20" stroke="#F58B52" stroke-width="4" stroke-linecap="round"
+                        stroke-dasharray="98 125.7"/>
+              </svg>
+              <span class="pct">78%</span>
+            </div>
+            <span class="check-badge">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+            </span>
+          </div>
+          <figcaption class="card-meta">
+            <div class="card-name">IMG_2420.jpg</div>
+            <div class="card-size up-flag">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="M6 11l6-6 6 6"/></svg>
+              3.0 MB · 上传中
+            </div>
+          </figcaption>
+        </figure>
+      </div>
+
+      <!-- transfer dock -->
+      <div class="dock">
+        <div class="dock-lead">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4.2 13.2L6.6 6h10.8l2.4 7.2"/><path d="M4 13.2h4.8a3.2 3.2 0 0 0 6.4 0H20v3.6a2.2 2.2 0 0 1-2.2 2.2H6.2A2.2 2.2 0 0 1 4 16.8v-3.6z"/>
+          </svg>
+          <span class="t">传输</span>
+          <span class="dock-count">2</span>
+        </div>
+
+        <div class="dock-item">
+          <span class="dock-thumb"><img src="https://picsum.photos/seed/21/120/120" alt="IMG_2420.jpg"></span>
+          <span class="dock-info">
+            <span class="dock-name">IMG_2420.jpg</span>
+            <span class="dock-bar"><i style="width:78%"></i></span>
+          </span>
+          <svg class="dock-up" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="M6 11l6-6 6 6"/></svg>
+          <span class="dock-pct">78%</span>
+        </div>
+
+        <div class="dock-item">
+          <span class="dock-thumb">
+            <img src="https://picsum.photos/seed/23/120/120" alt="sunset-timelapse.mp4">
+            <span class="mini-kind">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="9" fill="rgba(20,14,8,.55)"/>
+                <path d="M10 8.6v6.8l5.4-3.4z" fill="#fff"/>
+              </svg>
+            </span>
+          </span>
+          <span class="dock-info">
+            <span class="dock-name">sunset-timelapse.mp4</span>
+            <span class="dock-bar"><i style="width:31%"></i></span>
+          </span>
+          <svg class="dock-up" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="M6 11l6-6 6 6"/></svg>
+          <span class="dock-pct">31%</span>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+</body>
+</html>

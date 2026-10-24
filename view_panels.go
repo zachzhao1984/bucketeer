@@ -597,7 +597,11 @@ func (a *App) connectionCard(c *ui.Context, profile store.Profile) {
 	box := card(c).FillWidth().Padding(12, 14).Gap(0)
 	box.Children(func() {
 		ui.Row(c).FillWidth().Gap(11).AlignItems(ui.Center).Children(func() {
-			monogram(c, profile.Name, 34)
+			if active {
+				drivePlate(c, profile.Name, 34)
+			} else {
+				monogram(c, profile.Name, 34)
+			}
 
 			ui.Column(c).Grow(1).Gap(2).Children(func() {
 				ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
@@ -743,13 +747,13 @@ func (a *App) transfersDock(c *ui.Context) {
 			Top(winH-height-20).
 			Width(380).
 			Height(height).
-			Radius(12).
+			Radius(14).
 			Background(ui.Transparent).
 			Border(0, ui.Transparent)
 		dock.Draw(func(p *ui.Painter, r ui.Rect) {
-			p.Shadow(r, 12, 0, 12, 40, 0, ch.floatShadow)
-			p.Fill(r, ch.plate, 12)
-			p.Stroke(r, ch.hairline, 12, 1)
+			p.Shadow(r, 14, 0, 14, 48, 0, ch.floatShadow)
+			p.Fill(r, ch.plate, 14)
+			p.Stroke(r, ch.hairline, 14, 1)
 		})
 		a.dockBody(c, dock, transfers)
 	})

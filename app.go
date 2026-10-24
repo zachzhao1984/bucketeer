@@ -915,6 +915,17 @@ func (a *App) setViewMode(mode ViewMode) {
 // transfers returns the live transfer list.
 func (a *App) transfers() []store.Transfer { return a.svc.ListTransfers() }
 
+// activeTransferFor returns the transfer still moving a given object, if
+// one is — the grid card shows its progress.
+func (a *App) activeTransferFor(key string) (store.Transfer, bool) {
+	for _, tr := range a.transfers() {
+		if tr.Key == key && !tr.Finished() {
+			return tr, true
+		}
+	}
+	return store.Transfer{}, false
+}
+
 // activeTransfers counts the transfers still going.
 func (a *App) activeTransfers() int { return a.svc.ActiveTransfers() }
 

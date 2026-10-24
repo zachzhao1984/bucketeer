@@ -102,6 +102,8 @@ func (a *App) card(c *ui.Context, e store.Entry) {
 	chosen := a.sel.Has(e.Key)
 	kind := kindOf(e.Key, e.Folder)
 
+	upload, uploading := a.activeTransferFor(e.Key)
+
 	card := ui.Column(c.Key(e.Key)).
 		Fill().
 		Padding(6).
@@ -123,6 +125,16 @@ func (a *App) card(c *ui.Context, e store.Entry) {
 			p.Stroke(r, ch.selected, 10, 1.5)
 		case hovered:
 			p.Fill(r, ch.hover, 10)
+		}
+		if uploading {
+			// The object is in flight: an orange edge and its progress
+			// along the card's bottom, so the grid shows the queue.
+			p.Stroke(r, ch.accentFill, 10, 1.5)
+			frac := float32(1)
+			if upload.Size > 0 {
+				frac = float32(upload.Done) / float32(upload.Size)
+			}
+			p.Fill(ui.Rect{X: r.X + 1, Y: r.Y + r.H - 4, W: (r.W - 2) * frac, H: 3}, ch.accentFill, 1.5)
 		}
 	})
 

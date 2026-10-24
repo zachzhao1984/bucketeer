@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bucketeer — R2 主力</title>
+<style>
+  :root {
+    --red: #DF3128;        /* 比样张 #E0342C 深半档:白字对比 4.56:1 */
+    --red-bright: #FF5148; /* 黑底进度段用 */
+    --ink: #0A0A0A;
+    --gray: #6E6E73;
+    --track: #E5E5EA;
+    --thumb-bg: #DADADF;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    background: #E8E8ED;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", "PingFang SC", sans-serif;
+    color: var(--ink);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 90px 0;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---------- macOS 窗口壳 ---------- */
+  .window {
+    width: 1180px;
+    height: 820px;
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex;
+    background: #fff;
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.20), 0 4px 16px rgba(0, 0, 0, 0.10);
+  }
+
+  /* ---------- 左侧巨型色场 = 桶 ---------- */
+  .field {
+    width: 248px;
+    flex: none;
+    background: var(--red);
+    color: #fff;
+    padding: 0 26px 26px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+  .lights {
+    position: absolute;
+    top: 18px;
+    left: 22px;
+    display: flex;
+    gap: 8px;
+  }
+  .lights span { width: 12px; height: 12px; border-radius: 50%; display: block; }
+  .lights span:nth-child(1) { background: #FF5F57; }
+  .lights span:nth-child(2) { background: #FEBC2E; }
+  .lights span:nth-child(3) { background: #28C840; }
+
+  .brand {
+    margin-top: 60px;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.22em;
+  }
+  .bucket-name {
+    margin-top: 18px;
+    font-size: 52px;
+    font-weight: 900;
+    line-height: 1.04;
+    letter-spacing: 0.01em;
+  }
+  .bucket-meta {
+    margin-top: 16px;
+    font-size: 14px;
+    font-weight: 700;
+  }
+  .field nav {
+    margin-top: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .field nav a {
+    display: block;
+    padding: 11px 14px;
+    font-size: 15px;
+    font-weight: 700;
+    color: #fff;
+    text-decoration: none;
+  }
+  .field nav a:hover { background: rgba(255, 255, 255, 0.16); }
+  .field nav a.active {
+    background: #fff;
+    color: var(--red);
+  }
+
+  /* ---------- 右侧白底 ---------- */
+  main {
+    flex: 1;
+    min-width: 0;
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+  .topbar {
+    padding: 24px 36px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+  }
+  .topbar h2 {
+    font-size: 28px;
+    font-weight: 900;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+  }
+  .topbar h2 .slash { color: var(--red); }
+  .tools {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+  .count {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--gray);
+    white-space: nowrap;
+  }
+  .filter {
+    width: 190px;
+    height: 34px;
+    border: 2px solid var(--ink);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 12px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--gray);
+    cursor: text;
+  }
+  .filter:hover { border-color: var(--red); }
+  .toggle {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .toggle .sq {
+    width: 13px; height: 13px;
+    background: var(--ink);
+    cursor: pointer;
+  }
+  .toggle .ci {
+    width: 13px; height: 13px;
+    border: 2.5px solid var(--ink);
+    border-radius: 50%;
+    cursor: pointer;
+  }
+  .toggle .sq:hover { background: var(--red); }
+  .toggle .ci:hover { border-color: var(--red); }
+  .rule { height: 2px; background: var(--ink); margin: 0 36px; flex: none; }
+
+  /* ---------- 文件网格 ---------- */
+  .grid {
+    padding: 22px 36px 0;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 18px 22px;
+    align-content: start;
+  }
+  .tile { cursor: pointer; min-width: 0; }
+  .thumb {
+    height: 112px;
+    border: 3px solid transparent;
+    background: var(--thumb-bg);
+    position: relative;
+    overflow: hidden;
+  }
+  .tile:hover .thumb { border-color: var(--ink); }
+  .thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    background: var(--thumb-bg);
+  }
+  .tile figcaption {
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+  .tile strong {
+    font-size: 14px;
+    font-weight: 800;
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .tile span {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--gray);
+    line-height: 1.4;
+  }
+  .tile span em {
+    font-style: normal;
+    font-weight: 800;
+    color: var(--red);
+  }
+
+  /* 几何类型符号 */
+  .sym { display: flex; align-items: center; justify-content: center; }
+  .sym-video { background: var(--ink); }
+  .sym-audio { background: var(--ink); }
+  .sym-doc {
+    background: #fff;
+    border-color: var(--ink);
+  }
+  .sym-doc:hover { border-color: var(--red); }
+  .sym-doc b {
+    font-size: 42px;
+    font-weight: 900;
+    color: var(--ink);
+    line-height: 1;
+  }
+
+  /* 上传中 · 选中态:3px 红描边 */
+  .tile-selected .thumb { border-color: var(--red); }
+  .tile-selected:hover .thumb { border-color: var(--red); }
+  .prog {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 5px;
+    background: rgba(255, 255, 255, 0.55);
+  }
+  .prog i { display: block; height: 100%; background: var(--red); }
+
+  /* ---------- 传输 dock ---------- */
+  .dock {
+    position: absolute;
+    left: 258px; /* main 坐标系:让开第 13 块选中瓦片(右缘 ~234px) */
+    right: 24px;
+    bottom: 16px;
+    height: 58px;
+    background: var(--ink);
+    display: flex;
+    align-items: stretch;
+  }
+  .job {
+    flex: 1;
+    padding: 11px 18px 12px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-width: 0;
+  }
+  .job + .job { border-left: 1px solid #2C2C2E; }
+  .job:hover { background: #161618; }
+  .job-top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .job-top b {
+    font-size: 13px;
+    font-weight: 700;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .job-top span {
+    font-size: 13px;
+    font-weight: 800;
+    color: #fff;
+    flex: none;
+    font-variant-numeric: tabular-nums;
+  }
+  .job .track {
+    height: 6px;
+    background: rgba(255, 255, 255, 0.22);
+  }
+  .job .track i { display: block; height: 100%; background: var(--red-bright); }
+</style>
+</head>
+<body>
+  <div class="window">
+
+    <!-- 左侧:色场即桶 -->
+    <aside class="field">
+      <div class="lights"><span></span><span></span><span></span></div>
+      <div class="brand">BUCKETEER</div>
+      <h1 class="bucket-name">R2<br>主力</h1>
+      <div class="bucket-meta">media · 2.4 GB</div>
+      <nav>
+        <a href="#">Dashboard</a>
+        <a href="#" class="active">All files</a>
+        <a href="#">Recent files</a>
+        <a href="#">Settings</a>
+      </nav>
+    </aside>
+
+    <!-- 右侧:桶外的白底 -->
+    <main>
+      <header class="topbar">
+        <h2>photos <span class="slash">/</span> 2026-10</h2>
+        <div class="tools">
+          <div class="count">12 items · 2.4 GB</div>
+          <div class="filter">
+            <svg width="16" height="16" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+              <circle cx="7.5" cy="7.5" r="5" stroke="#0A0A0A" stroke-width="2.5"/>
+              <line x1="11.5" y1="11.5" x2="16" y2="16" stroke="#0A0A0A" stroke-width="2.5"/>
+            </svg>
+            Filter files
+          </div>
+          <div class="toggle" aria-label="Grid / List">
+            <span class="sq" title="Grid"></span>
+            <span class="ci" title="List"></span>
+          </div>
+        </div>
+      </header>
+      <div class="rule"></div>
+
+      <section class="grid">
+        <!-- 1 IMG_2417.jpg -->
+        <figure class="tile">
+          <div class="thumb"><img src="https://picsum.photos/seed/11/240/240" alt="IMG_2417.jpg"></div>
+          <figcaption><strong>IMG_2417.jpg</strong><span>3.4 MB</span></figcaption>
+        </figure>
+        <!-- 2 视频:黑底白三角 -->
+        <figure class="tile">
+          <div class="thumb sym sym-video">
+            <svg width="36" height="36" viewBox="0 0 24 24" aria-hidden="true">
+              <polygon points="9,5 20,12 9,19" fill="#fff"/>
+            </svg>
+          </div>
+          <figcaption><strong>sunrise-timelapse.mp4</strong><span>482 MB</span></figcaption>
+        </figure>
+        <!-- 3 album-cover.png -->
+        <figure class="tile">
+          <div class="thumb"><img src="https://picsum.photos/seed/13/240/240" alt="album-cover.png"></div>
+          <figcaption><strong>album-cover.png</strong><span>1.1 MB</span></figcaption>
+        </figure>
+        <!-- 4 文档 P -->
+        <figure class="tile">
+          <div class="thumb sym sym-doc"><b>P</b></div>
+          <figcaption><strong>field-notes.pdf</strong><span>82 KB</span></figcaption>
+        </figure>
+        <!-- 5 文档 Z -->
+        <figure class="tile">
+          <div class="thumb sym sym-doc"><b>Z</b></div>
+          <figcaption><strong>backup-2026-10.zip</strong><span>1.9 GB</span></figcaption>
+        </figure>
+        <!-- 6 音频:黑底白波形线 -->
+        <figure class="tile">
+          <div class="thumb sym sym-audio">
+            <svg width="60" height="30" viewBox="0 0 48 24" aria-hidden="true">
+              <path d="M2 12 H10 L14 5 L20 19 L26 7 L32 17 L36 12 H46" stroke="#fff" stroke-width="3" fill="none"/>
+            </svg>
+          </div>
+          <figcaption><strong>podcast-ep-42.m4a</strong><span>36 MB</span></figcaption>
+        </figure>
+        <!-- 7 IMG_2418.jpg -->
+        <figure class="tile">
+          <div class="thumb"><img src="https://picsum.photos/seed/15/240/240" alt="IMG_2418.jpg"></div>
+          <figcaption><strong>IMG_2418.jpg</strong><span>2.9 MB</span></figcaption>
+        </figure>
+        <!-- 8 文档 S -->
+        <figure class="tile">
+          <div class="thumb sym sym-doc"><b>S</b></div>
+          <figcaption><strong>logo-dark.svg</strong><span>14 KB</span></figcaption>
+        </figure>
+        <!-- 9 文档 D -->
+        <figure class="tile">
+          <div class="thumb sym sym-doc"><b>D</b></div>
+          <figcaption><strong>contract-v2.docx</strong><span>210 KB</span></figcaption>
+        </figure>
+        <!-- 10 IMG_2419.jpg -->
+        <figure class="tile">
+          <div class="thumb"><img src="https://picsum.photos/seed/17/240/240" alt="IMG_2419.jpg"></div>
+          <figcaption><strong>IMG_2419.jpg</strong><span>3.1 MB</span></figcaption>
+        </figure>
+        <!-- 11 waveform.png -->
+        <figure class="tile">
+          <div class="thumb"><img src="https://picsum.photos/seed/19/240/240" alt="waveform.png"></div>
+          <figcaption><strong>waveform.png</strong><span>640 KB</span></figcaption>
+        </figure>
+        <!-- 12 文档 M -->
+        <figure class="tile">
+          <div class="thumb sym sym-doc"><b>M</b></div>
+          <figcaption><strong>readme.md</strong><span>4 KB</span></figcaption>
+        </figure>
+        <!-- 13 上传中 · 选中:红描边 -->
+        <figure class="tile tile-selected">
+          <div class="thumb">
+            <img src="https://picsum.photos/seed/21/240/240" alt="IMG_2420.jpg">
+            <div class="prog"><i style="width:78%"></i></div>
+          </div>
+          <figcaption><strong>IMG_2420.jpg</strong><span>3.0 MB · <em>↑ 78%</em></span></figcaption>
+        </figure>
+      </section>
+
+      <!-- 传输 dock -->
+      <div class="dock">
+        <div class="job">
+          <div class="job-top"><b>IMG_2420.jpg</b><span>↑ 78%</span></div>
+          <div class="track"><i style="width:78%"></i></div>
+        </div>
+        <div class="job">
+          <div class="job-top"><b>sunset-timelapse.mp4</b><span>↑ 31%</span></div>
+          <div class="track"><i style="width:31%"></i></div>
+        </div>
+      </div>
+    </main>
+
+  </div>
+</body>
+</html>
