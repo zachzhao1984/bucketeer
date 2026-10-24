@@ -170,8 +170,8 @@ func (a *App) sidebar(c *ui.Context) {
 			})
 		})
 
-		// The folders of the place being browsed, one level deep, as the
-		// reference client lists them.
+		// The bucket's own folders, fixed in place while the right side
+		// moves through them.
 		ui.Column(c).Grow(1).Padding(0, 10).Children(func() {
 			folders := a.sidebarFolders()
 			if len(folders) == 0 {
@@ -203,7 +203,7 @@ func (a *App) sidebar(c *ui.Context) {
 }
 
 // syncSidebarChoice points the sidebar's own selection at where the app
-// is looking.
+// is looking: the root folder that holds the browsed prefix, if any.
 func (a *App) syncSidebarChoice() {
 	switch {
 	case a.section == sectionSettings:
@@ -212,25 +212,30 @@ func (a *App) syncSidebarChoice() {
 		a.sidebarID = navRecent
 	case a.section == sectionDashboard && a.session.Connected:
 		a.sidebarID = navDashboard
-	case a.browsing() && a.prefix != "":
-		a.sidebarID = "folder:" + a.prefix
+	case a.section == sectionFiles && a.browsing() && a.rootAncestor() != "":
+		a.sidebarID = "folder:" + a.rootAncestor()
 	default:
 		a.sidebarID = navFiles
 	}
 }
 
-// sidebarFolders returns the folders of the browsed location.
+// rootAncestor returns the bucket-root folder the browsed prefix lives
+// in, or "" at the root.
+func (a *App) rootAncestor() string {
+	for _, e := range a.rootFolders {
+		if strings.HasPrefix(a.prefix, e.Key) {
+			return e.Key
+		}
+	}
+	return ""
+}
+
+// sidebarFolders returns the bucket's own folders for the sidebar.
 func (a *App) sidebarFolders() []store.Entry {
 	if !a.browsing() {
 		return nil
 	}
-	var out []store.Entry
-	for _, e := range a.listing.Items {
-		if e.Folder {
-			out = append(out, e)
-		}
-	}
-	return out
+	return a.rootFolders
 }
 
 /* -------------------------------------------------------------------------

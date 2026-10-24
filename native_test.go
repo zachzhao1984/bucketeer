@@ -769,3 +769,41 @@ func TestOpenSettingsPutsPreferencesForward(t *testing.T) {
 		t.Fatalf("openSettings landed on %v / %v", a.section, a.settingsPage)
 	}
 }
+
+// TestSidebarFoldersStayAtRoot checks the fixed Folders list: the sidebar
+// keeps showing the bucket's own folders wherever the right side moves,
+// and the highlight lands on the root folder that holds the prefix.
+func TestSidebarFoldersStayAtRoot(t *testing.T) {
+	a := nativeTestApp(t)
+	p := store.Profile{ID: "demo", Name: "Acme", Endpoint: "https://s3.example.com", Bucket: "magpie"}
+	a.session = SessionInfo{Connected: true, Profile: &p, Host: "s3.example.com"}
+	a.bucket = "magpie"
+	a.section = sectionFiles
+	a.rootFolders = []store.Entry{
+		{Key: "photos/", Name: "photos", Folder: true},
+		{Key: "media/", Name: "media", Folder: true},
+	}
+	a.listing = store.Listing{Items: []store.Entry{
+		{Key: "photos/2026-10/", Name: "2026-10", Folder: true},
+		{Key: "photos/2026-09/", Name: "2026-09", Folder: true},
+	}}
+
+	// Inside photos/2026-10/, the sidebar still offers both root folders
+	// and highlights photos.
+	a.prefix = "photos/2026-10/"
+	a.syncSidebarChoice()
+	if a.sidebarID != "folder:photos/" {
+		t.Fatalf("sidebar choice = %q, want the photos root folder", a.sidebarID)
+	}
+	folders := a.sidebarFolders()
+	if len(folders) != 2 || folders[0].Key != "photos/" || folders[1].Key != "media/" {
+		t.Fatalf("sidebar folders followed the browse: %+v", folders)
+	}
+
+	// Back at the root, no folder is highlighted.
+	a.prefix = ""
+	a.syncSidebarChoice()
+	if a.sidebarID != navFiles {
+		t.Fatalf("sidebar choice at root = %q, want all files", a.sidebarID)
+	}
+}

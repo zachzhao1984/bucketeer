@@ -115,6 +115,10 @@ type App struct {
 	// appearanceDark mirrors the appearance the last frame drew in, for
 	// tests and the window's own chrome.
 	appearanceDark bool
+	// rootFolders are the bucket's own folders, for the sidebar's fixed
+	// Folders list; the right side moves through them.
+	rootFolders        []store.Entry
+	rootFoldersLoading bool
 	// picgoPage is the Image hosting page's state, and picgoProfileOpen
 	// its connection menu.
 	picgoPage        picgoPageState
@@ -385,6 +389,38 @@ func (a *App) openBucket(name string) {
 	a.resetListing()
 	a.setTitle()
 	a.loadListing()
+	a.loadRootFolders()
+}
+
+// loadRootFolders lists the bucket's own folders, once, for the sidebar:
+// they stay fixed while the right side moves through them.
+func (a *App) loadRootFolders() {
+	if !a.svc.Connected() || a.bucket == "" {
+		a.rootFolders = nil
+		return
+	}
+	token := a.next()
+	bucket := a.bucket
+	a.rootFoldersLoading = true
+	go func() {
+		listing, err := a.svc.ListObjects(a.ctx, bucket, "")
+		a.update(func() {
+			if !a.current(token) || bucket != a.bucket {
+				return
+			}
+			a.rootFoldersLoading = false
+			if err != nil {
+				return
+			}
+			var folders []store.Entry
+			for _, e := range listing.Items {
+				if e.Folder {
+					folders = append(folders, e)
+				}
+			}
+			a.rootFolders = folders
+		})
+	}()
 }
 
 // openPrefix browses a folder inside the open bucket.
@@ -754,6 +790,9 @@ func (a *App) clearSearch() {
 
 // refresh reloads whatever the current section shows.
 func (a *App) refresh() {
+	if a.browsing() {
+		a.loadRootFolders()
+	}
 	switch a.section {
 	case sectionDashboard:
 		a.stat = nil
