@@ -16,7 +16,9 @@ const sidebarWidth = 232
 // and the content plane beside it with its bar along the top.
 func (a *App) view(c *ui.Context) {
 	a.services = c.Services()
-	t := a.theme(a.dark(c))
+	dark := a.dark(c)
+	a.appearanceDark = dark
+	t := a.theme(dark)
 	c.SetTheme(t)
 	ch := chromeOf(t)
 
@@ -69,6 +71,11 @@ func (a *App) shortcuts(c *ui.Context) {
 		}
 	})
 	c.OnShortcut(ui.Cmd, ui.KeyUp, a.goUp)
+	c.OnShortcut(ui.Cmd, ui.KeyF, func() {
+		a.focusFilter = true
+		a.setSection(sectionFiles)
+	})
+	c.OnShortcut(0, ui.KeySpace, a.togglePreview)
 	c.OnShortcut(0, ui.KeyEnter, func() {
 		if e, ok := a.one(); ok {
 			a.openEntry(e)
@@ -88,9 +95,12 @@ func compactWindow(c *ui.Context) bool {
 }
 
 // dark reports the appearance to draw in: the system's, unless the
-// preferences asked for one of their own.
+// preferences pinned one of their own.
 func (a *App) dark(c *ui.Context) bool {
-	if a.prefs.DarkMode {
+	switch a.prefs.Appearance {
+	case "light":
+		return false
+	case "dark":
 		return true
 	}
 	return c.Theme().Dark
@@ -611,7 +621,13 @@ func (a *App) filesToolbar(c *ui.Context) {
 		if compactWindow(c) {
 			width = 128
 		}
-		field := ctlSearchField(c, "filter", &a.search, width, "Filter")
+		field := ctlSearchField(c, "filter", &a.search, width, "Filter", &a.filterHandle)
+		if a.focusFilter {
+			// ⌘F landed while the toolbar was away or not yet built; the
+			// request waits on the handle, so asking here is enough.
+			a.filterHandle.Focus(c)
+			a.focusFilter = false
+		}
 		if field.Changed() {
 			a.sel.Clear()
 			a.cursor = -1

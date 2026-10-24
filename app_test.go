@@ -554,3 +554,36 @@ func TestSeedR2Connection(t *testing.T) {
 		t.Fatalf("seeded connection appears %d times, want 1", count)
 	}
 }
+
+// TestSettingsMigrateAppearance checks that a settings file from before the
+// three-way appearance choice still reads: a pinned dark keeps its pin, and
+// everything else follows the system.
+func TestSettingsMigrateAppearance(t *testing.T) {
+	dir := t.TempDir()
+	old := `{"viewMode":"grid","showThumbnails":true,"confirmDelete":true,"presignTtlHours":24,"darkMode":true}`
+	if err := os.WriteFile(filepath.Join(dir, "settings.json"), []byte(old), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	svc, err := newServiceAt(dir, &memSecrets{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer svc.Close()
+	if got := svc.GetSettings().Appearance; got != "dark" {
+		t.Fatalf("a pinned dark file migrated to %q, want dark", got)
+	}
+	svc.Close()
+
+	plain := `{"viewMode":"grid","showThumbnails":true,"confirmDelete":true,"presignTtlHours":24,"darkMode":false}`
+	if err := os.WriteFile(filepath.Join(dir, "settings.json"), []byte(plain), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	svc2, err := newServiceAt(dir, &memSecrets{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer svc2.Close()
+	if got := svc2.GetSettings().Appearance; got != "system" {
+		t.Fatalf("a light file migrated to %q, want system", got)
+	}
+}

@@ -54,8 +54,12 @@ type Settings struct {
 	ConfirmDelete bool `json:"confirmDelete"`
 	// PresignTTLHours is how long a share link stays valid.
 	PresignTTLHours int `json:"presignTtlHours"`
-	// DarkMode asks for the dark appearance whatever the system shows.
-	DarkMode bool `json:"darkMode"`
+	// Appearance is "system", "light" or "dark": whether the interface
+	// follows the system's appearance or pins one of its own.
+	Appearance string `json:"appearance"`
+	// DarkMode is the appearance switch of earlier settings files, kept so
+	// they still read. New files carry Appearance.
+	DarkMode bool `json:"darkMode,omitempty"`
 	// PicGo configures the image-upload service, kept beside the rest of
 	// the preferences because it is one.
 	PicGo PicGoConfig `json:"picgo"`
@@ -67,6 +71,7 @@ func defaultSettings() Settings {
 		ShowThumbnails:  true,
 		ConfirmDelete:   true,
 		PresignTTLHours: 24,
+		Appearance:      "system",
 		PicGo:           defaultPicGo(),
 	}
 }
@@ -253,6 +258,19 @@ func (s *Service) loadSettings(dataDir string) error {
 		// starting; the defaults are good enough.
 		return nil
 	}
+	// A file from before the three-way appearance choice carries no
+	// appearance key; its dark-mode switch is the pin to migrate. Files
+	// the app writes always carry the key.
+	var probe map[string]json.RawMessage
+	if err := json.Unmarshal(b, &probe); err == nil {
+		if _, ok := probe["appearance"]; !ok {
+			if settings.DarkMode {
+				settings.Appearance = "dark"
+			} else {
+				settings.Appearance = "system"
+			}
+		}
+	}
 	s.mu.Lock()
 	s.settings = normalizeSettings(settings)
 	s.mu.Unlock()
@@ -269,6 +287,18 @@ func normalizeSettings(settings Settings) Settings {
 	if settings.PresignTTLHours > 24*7 {
 		settings.PresignTTLHours = 24 * 7
 	}
+	switch settings.Appearance {
+	case "system", "light", "dark":
+	default:
+		// A settings file from before the three-way choice: a pinned dark
+		// appearance keeps its pin, the rest follow the system.
+		if settings.DarkMode {
+			settings.Appearance = "dark"
+		} else {
+			settings.Appearance = "system"
+		}
+	}
+	settings.DarkMode = settings.Appearance == "dark"
 	settings.PicGo = normalizePicGo(settings.PicGo)
 	return settings
 }

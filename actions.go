@@ -384,6 +384,24 @@ func (a *App) openInBrowser(key string) {
 	}()
 }
 
+// openSettings shows the settings, on the Preferences pane.
+func (a *App) openSettings() {
+	a.setSection(sectionSettings)
+	a.settingsPage = pagePreferences
+}
+
+// togglePreview opens the one chosen object's detail, or closes it when it
+// is open — the way Finder's Quick Look works with Space.
+func (a *App) togglePreview() {
+	if a.dlg == dialogDetail {
+		a.dlg = dialogNone
+		return
+	}
+	if e, ok := a.one(); ok {
+		a.showDetail(e.Key)
+	}
+}
+
 // copyText puts text on the clipboard and says so.
 func (a *App) copyText(text, what string) {
 	a.services.WriteClipboard(text)

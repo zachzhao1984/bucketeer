@@ -108,6 +108,13 @@ type App struct {
 	// cli is the Command line page's state: the link, the installed
 	// skills, and what the last action did.
 	cli cliState
+	// filterHandle is the files toolbar's filter field, and focusFilter a
+	// ⌘F waiting to put the caret in it.
+	filterHandle ui.Handle
+	focusFilter  bool
+	// appearanceDark mirrors the appearance the last frame drew in, for
+	// tests and the window's own chrome.
+	appearanceDark bool
 	// picgoPage is the Image hosting page's state, and picgoProfileOpen
 	// its connection menu.
 	picgoPage        picgoPageState

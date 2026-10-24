@@ -495,20 +495,18 @@ func (a *App) settingsPreferences(c *ui.Context) {
 		ui.Column(c).Gap(6).Children(func() {
 			ui.Text(c, "Appearance").FontSize(typeBody).TextColor(t.TextMuted)
 			group(c, func() {
-				a.settingRow(c, "Theme", "Light or dark interface", func() {
+				a.settingRow(c, "Theme", "Follow the system's appearance, or pin one.", func() {
 					track := ctlSegmentTrack(c)
 					track.Children(func() {
-						light := !a.prefs.DarkMode
-						seg := ctlSegment(c, &light, "Light")
-						seg.Width(60)
-						seg.Children(func() { ui.Text(c, "Light").FontSize(typeBody) })
-						seg.OnClick(func() { a.setDark(false) })
-
-						dark := a.prefs.DarkMode
-						seg2 := ctlSegment(c, &dark, "Dark")
-						seg2.Width(60)
-						seg2.Children(func() { ui.Text(c, "Dark").FontSize(typeBody) })
-						seg2.OnClick(func() { a.setDark(true) })
+						for _, choice := range []struct{ value, label string }{
+							{"system", "Auto"}, {"light", "Light"}, {"dark", "Dark"},
+						} {
+							on := a.prefs.Appearance == choice.value
+							seg := ctlSegment(c, &on, choice.label)
+							seg.Width(64)
+							seg.Children(func() { ui.Text(c, choice.label).FontSize(typeBody) })
+							seg.OnClick(func() { a.setAppearance(choice.value) })
+						}
 					})
 				})
 			})
@@ -713,9 +711,10 @@ func (a *App) persistSettings() {
 	a.settingsWrites <- settings
 }
 
-// setDark switches the interface's appearance and remembers the choice.
-func (a *App) setDark(dark bool) {
-	a.prefs.DarkMode = dark
+// setAppearance pins the interface's appearance, or returns it to the
+// system's.
+func (a *App) setAppearance(appearance string) {
+	a.prefs.Appearance = appearance
 	a.persistSettings()
 }
 

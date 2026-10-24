@@ -652,3 +652,119 @@ func TestSettingsPageTitles(t *testing.T) {
 		}
 	}
 }
+
+// TestAppearanceFollowsSystemOrPins checks the three-way choice: the
+// default follows the system's appearance, and a pin holds against it.
+func TestAppearanceFollowsSystemOrPins(t *testing.T) {
+	a := nativeTestApp(t)
+	if a.prefs.Appearance != "system" {
+		t.Fatalf("default appearance = %q, want system", a.prefs.Appearance)
+	}
+	tester := ui.NewTester(a.view, 1180, 820)
+	tester.SetTitleBar(ui.TitleBar{Height: 52, Left: 79})
+
+	tester.SetDark(true)
+	tester.Frame()
+	if !a.appearanceDark {
+		t.Fatal("with the system dark, the app drew light")
+	}
+	tester.SetDark(false)
+	tester.Frame()
+	if a.appearanceDark {
+		t.Fatal("with the system light, the app drew dark")
+	}
+
+	a.setAppearance("dark")
+	tester.SetDark(false)
+	tester.Frame()
+	if !a.appearanceDark {
+		t.Fatal("a pinned dark appearance did not hold against the system light")
+	}
+	a.setAppearance("light")
+	tester.SetDark(true)
+	tester.Frame()
+	if a.appearanceDark {
+		t.Fatal("a pinned light appearance did not hold against the system dark")
+	}
+	a.setAppearance("system")
+	tester.SetDark(true)
+	tester.Frame()
+	if !a.appearanceDark {
+		t.Fatal("returning to system did not resume following the system")
+	}
+}
+
+// TestFocusFilterWithCmdF checks that ⌘F puts the caret in the filter
+// field, where the next keystrokes land.
+func TestFocusFilterWithCmdF(t *testing.T) {
+	a := nativeTestApp(t)
+	p := store.Profile{ID: "demo", Name: "Acme", Endpoint: "https://s3.example.com", Bucket: "magpie"}
+	a.session = SessionInfo{Connected: true, Profile: &p, Host: "s3.example.com"}
+	a.bucket = "magpie"
+	a.section = sectionFiles
+	tester := ui.NewTester(a.view, 1180, 820)
+	tester.SetTitleBar(ui.TitleBar{Height: 52, Left: 79})
+
+	// ⌘F from another section first walks to the files.
+	a.section = sectionDashboard
+	tester.Frame()
+	tester.Key(ui.Cmd, ui.KeyF)
+	tester.Frame()
+	tester.Type("todo")
+	tester.Frame()
+	if a.section != sectionFiles {
+		t.Fatalf("section = %v, want files", a.section)
+	}
+	if a.search != "todo" {
+		t.Fatalf("search = %q, want the typing to have landed in the filter", a.search)
+	}
+}
+
+// TestSpaceTogglesPreview checks that Space opens the one chosen object's
+// detail, and that Escape — the way out of every dialog in the app —
+// closes it again.
+func TestSpaceTogglesPreview(t *testing.T) {
+	a := nativeTestApp(t)
+	p := store.Profile{ID: "demo", Name: "Acme", Endpoint: "https://s3.example.com", Bucket: "magpie"}
+	a.session = SessionInfo{Connected: true, Profile: &p, Host: "s3.example.com"}
+	a.bucket = "magpie"
+	a.section = sectionFiles
+	a.listing = store.Listing{Items: []store.Entry{
+		{Key: "photo.png", Name: "photo.png", Size: 2048},
+		{Key: "notes.md", Name: "notes.md", Size: 412},
+	}}
+	tester := ui.NewTester(a.view, 1180, 820)
+	tester.SetTitleBar(ui.TitleBar{Height: 52, Left: 79})
+	tester.Frame()
+
+	// Nothing chosen: Space does nothing.
+	tester.Key(0, ui.KeySpace)
+	tester.Frame()
+	if a.dlg != dialogNone {
+		t.Fatal("Space with no selection opened a dialog")
+	}
+
+	a.sel.Add("photo.png")
+	tester.Key(0, ui.KeySpace)
+	tester.Frame()
+	if a.dlg != dialogDetail {
+		t.Fatalf("Space with a selection opened %v, want the detail", a.dlg)
+	}
+	tester.Key(0, ui.KeyEscape)
+	tester.Frame()
+	if a.dlg != dialogNone {
+		t.Fatal("Escape did not close the detail")
+	}
+}
+
+// TestOpenSettingsPutsPreferencesForward checks the handler the app menu's
+// Settings… item runs.
+func TestOpenSettingsPutsPreferencesForward(t *testing.T) {
+	a := nativeTestApp(t)
+	a.section = sectionFiles
+	a.settingsPage = pageCLI
+	a.openSettings()
+	if a.section != sectionSettings || a.settingsPage != pagePreferences {
+		t.Fatalf("openSettings landed on %v / %v", a.section, a.settingsPage)
+	}
+}

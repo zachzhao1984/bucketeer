@@ -186,8 +186,9 @@ func ctlFieldOnInset(c *ui.Context, e ui.Element) ui.Element {
 
 // ctlSearchField is the filter field: a magnifier, the text, and nothing
 // else. It returns the field itself, so the caller can ask it whether
-// the text changed this frame.
-func ctlSearchField(c *ui.Context, key any, value *string, width float32, label string) ui.Element {
+// the text changed this frame. handle, when not nil, is bound to the text
+// so a shortcut can put the caret in it.
+func ctlSearchField(c *ui.Context, key any, value *string, width float32, label string, handle *ui.Handle) ui.Element {
 	t := c.Theme()
 	ch := chromeOf(t)
 
@@ -198,8 +199,12 @@ func ctlSearchField(c *ui.Context, key any, value *string, width float32, label 
 	row.Label(label)
 	row.Children(func() {
 		ui.Icon(c, iconSearch).FontSize(14).TextColor(t.TextMuted).Shrink(0)
-		field = ui.TextInputBase(c, value).Placeholder("Filter…").FontSize(typeBody)
-		field.Grow(1).Shrink(1)
+		input := ui.TextInputBase(c, value).Placeholder("Filter…").FontSize(typeBody)
+		if handle != nil {
+			input.Bind(handle)
+		}
+		input.Grow(1).Shrink(1)
+		field = input
 	})
 	return field
 }

@@ -32,7 +32,21 @@ func main() {
 		})
 		app.attach(win)
 		mygo.App.SetMenu(mygo.NewMenu([]*mygo.MenuItem{
-			{Role: mygo.RoleAppMenu},
+			{Role: mygo.RoleAppMenu, Submenu: []*mygo.MenuItem{
+				{Role: mygo.RoleAbout},
+				mygo.Separator(),
+				{Label: "Settings…", Accelerator: "CmdOrCtrl+,", Click: func(*mygo.MenuItem, *mygo.Window) {
+					win.Update(app.openSettings)
+				}},
+				mygo.Separator(),
+				{Role: mygo.RoleServices},
+				mygo.Separator(),
+				{Role: mygo.RoleHide},
+				{Role: mygo.RoleHideOthers},
+				{Role: mygo.RoleUnhide},
+				mygo.Separator(),
+				{Role: mygo.RoleQuit},
+			}},
 			{Label: "File", Submenu: []*mygo.MenuItem{
 				{Label: "Upload Files…", Accelerator: "CmdOrCtrl+O", Click: func(*mygo.MenuItem, *mygo.Window) { win.Update(app.upload) }},
 				{Label: "Refresh", Accelerator: "CmdOrCtrl+R", Click: func(*mygo.MenuItem, *mygo.Window) { win.Update(app.refresh) }},
