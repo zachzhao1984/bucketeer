@@ -349,6 +349,7 @@ type settingsPage int
 const (
 	pagePreferences settingsPage = iota
 	pageConnections
+	pagePicGo
 	pageCLI
 	pageAbout
 )
@@ -371,6 +372,8 @@ func (a *App) settings(c *ui.Context) {
 						switch a.settingsPage {
 						case pageConnections:
 							a.settingsConnections(c)
+						case pagePicGo:
+							a.settingsPicGo(c)
 						case pageCLI:
 							a.settingsCLI(c)
 						case pageAbout:
@@ -400,6 +403,7 @@ func (a *App) settingsSidebar(c *ui.Context) {
 		}{
 			{pagePreferences, "Preferences", iconSliders},
 			{pageConnections, "Connections", iconBucket},
+			{pagePicGo, "Image hosting", iconImage},
 			{pageCLI, "Command line", iconTerminal},
 			{pageAbout, "About", iconInfo},
 		}

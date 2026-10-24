@@ -22,9 +22,12 @@ import (
 // and previews. Views call it on their own goroutines, so the state it
 // shares is guarded by mu; results come back through the app's window.
 type Service struct {
-	mu            sync.Mutex
-	profiles      *store.ProfileStore
-	manager       *store.Manager
+	mu       sync.Mutex
+	profiles *store.ProfileStore
+	manager  *store.Manager
+	// secrets is the credential store, held so the app's own tokens (such
+	// as the upload service's) live beside the access keys.
+	secrets       store.SecretStore
 	session       *store.Session
 	settings      Settings
 	closed        bool
@@ -32,6 +35,10 @@ type Service struct {
 	// dataDir is where the settings file lives, fixed when the service is
 	// built so a service can be rooted at a temporary directory in tests.
 	dataDir string
+	// picgoQueue is what the image-upload service hands its requests to,
+	// and picgo the one running HTTP service, nil when it is off.
+	picgoQueue *store.PicGoQueue
+	picgo      *picgoServer
 	// onTransfers is told that the transfer list changed. It runs on a
 	// transfer goroutine, so it only marks the interface for a redraw.
 	onTransfers func()
@@ -49,6 +56,9 @@ type Settings struct {
 	PresignTTLHours int `json:"presignTtlHours"`
 	// DarkMode asks for the dark appearance whatever the system shows.
 	DarkMode bool `json:"darkMode"`
+	// PicGo configures the image-upload service, kept beside the rest of
+	// the preferences because it is one.
+	PicGo PicGoConfig `json:"picgo"`
 }
 
 func defaultSettings() Settings {
@@ -57,6 +67,7 @@ func defaultSettings() Settings {
 		ShowThumbnails:  true,
 		ConfirmDelete:   true,
 		PresignTTLHours: 24,
+		PicGo:           defaultPicGo(),
 	}
 }
 
@@ -98,9 +109,11 @@ func newService() (*Service, error) {
 // a temporary directory and an in-memory credential store.
 func newServiceAt(dataDir string, secrets store.SecretStore) (*Service, error) {
 	s := &Service{
-		profiles: store.NewProfileStore(filepath.Join(dataDir, "connections.json"), secrets),
-		settings: defaultSettings(),
-		dataDir:  dataDir,
+		profiles:   store.NewProfileStore(filepath.Join(dataDir, "connections.json"), secrets),
+		settings:   defaultSettings(),
+		dataDir:    dataDir,
+		secrets:    secrets,
+		picgoQueue: store.NewPicGoQueue(),
 	}
 	if err := s.loadSettings(dataDir); err != nil {
 		return nil, err
@@ -256,15 +269,26 @@ func normalizeSettings(settings Settings) Settings {
 	if settings.PresignTTLHours > 24*7 {
 		settings.PresignTTLHours = 24 * 7
 	}
+	settings.PicGo = normalizePicGo(settings.PicGo)
 	return settings
 }
 
 // dataDir returns the app's data directory.
 func dataDir() (string, error) { return mygo.App.Path(mygo.PathUserData) }
 
-// Close stops the transfers, so a late progress report cannot reach an
-// interface that is gone.
+// Close stops the transfers and the image-upload service, so a late
+// progress report cannot reach an interface that is gone.
 func (s *Service) Close() {
+	s.mu.Lock()
+	picgo := s.picgo
+	queue := s.picgoQueue
+	s.mu.Unlock()
+	if picgo != nil {
+		picgo.stop()
+	}
+	if queue != nil {
+		queue.Close()
+	}
 	s.mu.Lock()
 	s.closed = true
 	s.connectionSeq++
@@ -454,11 +478,13 @@ func (s *Service) Connect(ctx context.Context, id string) (SessionInfo, error) {
 		}
 	}
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	if s.closed || generation != s.connectionSeq || ctx.Err() != nil {
+		s.mu.Unlock()
 		return SessionInfo{}, context.Canceled
 	}
 	s.session = session
+	s.mu.Unlock()
+	s.connectToPicGo()
 	return info(session), nil
 }
 
@@ -468,6 +494,7 @@ func (s *Service) Disconnect() SessionInfo {
 	s.connectionSeq++
 	s.session = nil
 	s.mu.Unlock()
+	s.connectToPicGo()
 	return SessionInfo{}
 }
 
@@ -649,6 +676,8 @@ func (s *Service) PresignObject(ctx context.Context, bucket, key string, hours i
 // MaxPreviewBytes caps how much of an object the app reads into memory
 // for a preview.
 const MaxPreviewBytes = 1 << 20
+
+// MaxImageBytes is the largest image a preview or an upload reads.
 const MaxImageBytes = 20 << 20
 
 // TextPreview is a text file's content, and whether it was truncated.

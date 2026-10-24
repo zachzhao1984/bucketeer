@@ -108,6 +108,12 @@ type App struct {
 	// cli is the Command line page's state: the link, the installed
 	// skills, and what the last action did.
 	cli cliState
+	// picgoPage is the Image hosting page's state, and picgoProfileOpen
+	// its connection menu.
+	picgoPage        picgoPageState
+	picgoProfileOpen bool
+	picgoBaseDialog  bool
+	picgoBaseDraft   string
 	// rowMenuKey is the row whose Actions menu is open, and rowMenuOpen
 	// whether it is.
 	rowMenuKey  string
@@ -279,6 +285,9 @@ func (a *App) attach(win *mygo.Window) {
 		a.mode = viewGrid
 	}
 	a.svc.setTransferListener(func() { a.update(func() {}) })
+	// The upload service starts from the saved settings, whether the window
+	// is open or not: a notebook uploads while the app sits in the tray.
+	a.svc.startPicGo()
 	a.setTitle()
 	a.refreshConnections()
 	// Connect to the preloaded Cloudflare R2 connection on startup, so the

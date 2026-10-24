@@ -19,6 +19,30 @@ Releases carry a universal macOS disk image and a Windows installer:
 - **Windows 10 or later**: `Bucketeer-<version>-windows-amd64.exe`, which
   installs for the current user, with no administrator prompt
 
+## Image hosting for notebooks
+
+Settings → Image hosting starts a small upload service on this machine that
+speaks [PicGo's server protocol](https://docs.picgo.app/gui/guide/advance), so
+Obsidian's and Typora's image-upload plugins work with your bucket without
+another tool:
+
+- **Enable the service**, choose the connection and an optional folder, and
+  copy the URL it shows.
+- In **Typora**: Preferences → Image → Upload service → Custom, with that URL.
+- In **Obsidian**: the Image auto upload plugin, default uploader
+  “PicGo (app)”, and the URL as the api address.
+
+A picture pasted into a note lands in the bucket under
+`<folder>/<year>/<month>/<name>.png`, the note gets the link, and nothing
+leaves the machine but the image itself. Every request must carry the secret
+in the URL, which the app generates and can replace; a connection with a
+public base URL returns plain links, and one without returns signed links
+that expire with the share-link setting.
+
+The service listens on 127.0.0.1 only, accepts at most 20 images of up to
+32 MiB per request, and keeps the uploads visible in the same transfer list
+as the app's own.
+
 ## Building and Running
 
 The project is pure Go. Only Go 1.27+ and the MyGo CLI are required.
