@@ -71,7 +71,9 @@ func (a *App) confirmDialog(c *ui.Context) {
 			ui.Row(c).FillWidth().Gap(8).Justify(ui.End).Children(func() {
 				cancel := ctlButton(c, "Cancel")
 				if cancel.Clicked() {
-					a.confirm.open = false
+					// The dialog owns `open`; writing the field directly
+					// would be overwritten by the assignment below.
+					open = false
 				}
 				remove := ctlDanger(c, buttonLabel)
 				if remove.Clicked() {

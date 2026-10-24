@@ -807,3 +807,45 @@ func TestSidebarFoldersStayAtRoot(t *testing.T) {
 		t.Fatalf("sidebar choice at root = %q, want all files", a.sidebarID)
 	}
 }
+
+// TestConfirmCancelCancels checks the delete confirmation's Cancel: the
+// dialog closes and the action never runs.
+func TestConfirmCancelCancels(t *testing.T) {
+	a := nativeTestApp(t)
+	p := store.Profile{ID: "demo", Name: "Acme", Endpoint: "https://s3.example.com", Bucket: "magpie"}
+	a.session = SessionInfo{Connected: true, Profile: &p, Host: "s3.example.com"}
+	a.bucket = "magpie"
+	a.section = sectionFiles
+	fired := false
+	a.ask("Delete “Niki2.yaml”?", "This cannot be undone.", "Delete", func() { fired = true })
+	te := ui.NewTester(a.view, 1180, 820)
+	te.SetTitleBar(ui.TitleBar{Height: 52, Left: 79})
+	te.Frame()
+	if !a.confirm.open {
+		t.Fatal("the confirm dialog did not open")
+	}
+	if err := te.Click("Cancel"); err != nil {
+		t.Fatal(err)
+	}
+	te.Frame()
+	if a.confirm.open {
+		t.Fatal("Cancel left the confirm dialog open")
+	}
+	if fired {
+		t.Fatal("Cancel ran the delete action")
+	}
+
+	// Delete, by contrast, closes and fires.
+	a.ask("Delete “Niki2.yaml”?", "This cannot be undone.", "Delete", func() { fired = true })
+	te.Frame()
+	if err := te.Click("Delete"); err != nil {
+		t.Fatal(err)
+	}
+	te.Frame()
+	if a.confirm.open {
+		t.Fatal("Delete left the confirm dialog open")
+	}
+	if !fired {
+		t.Fatal("Delete did not run the action")
+	}
+}
