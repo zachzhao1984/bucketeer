@@ -148,23 +148,22 @@ func (a *App) rotatePicGoToken() {
 
 /* ---- The page ---- */
 
-// picgoField is a text field of this page, bound to a value and applied
-// when the person is done editing it.
-func (a *App) picgoField(c *ui.Context, label, hint, placeholder string, value *string, apply func(string)) {
-	t := c.Theme()
-	ui.Column(c).Gap(6).Children(func() {
-		ui.Row(c).FillWidth().AlignItems(ui.Center).Children(func() {
-			ui.Text(c, label).FontSize(typeBody).TextColor(t.Text).Grow(1)
-			if hint != "" {
-				ui.Text(c, hint).FontSize(typeCaption).TextColor(t.TextMuted)
+// picgoField is a text field of this page, drawn as a setting row: the
+// title and its explanation on the left, the box a person types in on the
+// right, applied when they are done editing it.
+func (a *App) picgoField(c *ui.Context, label, detail, placeholder string, value *string, apply func(string)) {
+	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(16).Padding(10, 2).Children(func() {
+		ui.Column(c).Grow(1).Gap(1).Children(func() {
+			ui.Text(c, label).FontSize(typeBody).TextColor(c.Theme().Text)
+			if detail != "" {
+				ui.Text(c, detail).FontSize(typeCaption).TextColor(c.Theme().TextMuted).SingleLine().Ellipsis("…")
 			}
 		})
 		field := ui.TextInputBase(c.Key(label), value).Placeholder(placeholder).FontSize(typeBody)
 		field.OnSubmit(func() {
 			apply(*value)
 		})
-		ctlField(c, field).FillWidth()
-		_ = t
+		ctlFieldOnInset(c, field).Width(240).Shrink(0)
 	})
 }
 
@@ -206,7 +205,7 @@ func (a *App) picGoServiceCard(c *ui.Context) {
 				ui.Text(c, itoa(state.Config.Port)).FontSize(typeBody).TextColor(t.TextMuted)
 			})
 			settingRule(c)
-			a.picgoField(c, "Upload into", "a folder in the bucket, empty for its root", "as in notes/pictures",
+			a.picgoField(c, "Prefix", "A folder in the bucket, empty for its root.", "as in notes/pictures",
 				&a.picgoPage.state.Config.Prefix, a.setPicGoPrefix)
 			settingRule(c)
 			a.settingRow(c, "Connection", "The bucket the pictures go to. Follow the connection you are browsing when empty.", func() {
@@ -313,7 +312,7 @@ func (a *App) picGoSetupCard(c *ui.Context) {
 					ui.Text(c, "—").FontSize(typeBody).TextColor(t.TextMuted)
 				})
 			} else {
-				a.picgoField(c, "Public base URL", "https://cdn.example.com", "empty for signed links that expire",
+				a.picgoField(c, "Public base URL", "The address the bucket is served at; empty for signed links that expire.", "as in https://cdn.example.com",
 					&a.picgoPage.publicBase, a.applyPublicBase)
 			}
 		})

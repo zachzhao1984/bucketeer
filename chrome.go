@@ -174,6 +174,16 @@ func ctlField(c *ui.Context, e ui.Element) ui.Element {
 		Height(btnHeight).Padding(0, 10).FontSize(typeBody)
 }
 
+// ctlFieldOnInset is a text field standing on an inset group, as the
+// settings pages draw one: it takes the canvas's own color and a hairline,
+// so its bounds read against the card it sits on.
+func ctlFieldOnInset(c *ui.Context, e ui.Element) ui.Element {
+	t := c.Theme()
+	ch := chromeOf(t)
+	return e.Background(ch.canvas).Border(1, ch.hairline).Radius(btnRadius).
+		Height(btnHeight).Padding(0, 10).FontSize(typeBody)
+}
+
 // ctlSearchField is the filter field: a magnifier, the text, and nothing
 // else. It returns the field itself, so the caller can ask it whether
 // the text changed this frame.
