@@ -729,135 +729,139 @@ func (a *App) setAppearance(appearance string) {
    beside it, as the reference client shows its queue.
    ------------------------------------------------------------------------- */
 
+// railHeight is how tall the light rail stands when transfers are up.
+func (a *App) railHeight() float32 {
+	if len(a.transfers()) == 0 {
+		return 48
+	}
+	return 72
+}
+
+// transfersDock is the light rail: a strip along the window's whole
+// bottom edge where transfers run like a horizon, their progress glowing
+// in the dark. ⌘T puts it away.
 func (a *App) transfersDock(c *ui.Context) {
 	t := c.Theme()
 	ch := chromeOf(t)
 	transfers := a.transfers()
 
 	winW, winH := c.Size()
-	height := float32(300)
-	if len(transfers) == 0 {
-		height = 168
-	}
+	height := a.railHeight()
 
 	ui.Overlay(c, func() {
-		dock := ui.Column(c).
+		rail := ui.Column(c).
 			Absolute().
-			Left(winW-400).
-			Top(winH-height-20).
-			Width(380).
+			Left(0).
+			Top(winH-height).
+			Width(winW).
 			Height(height).
-			Radius(14).
 			Background(ui.Transparent).
 			Border(0, ui.Transparent)
-		dock.Draw(func(p *ui.Painter, r ui.Rect) {
-			p.Shadow(r, 14, 0, 14, 48, 0, ch.floatShadow)
-			p.Fill(r, ch.plate, 14)
-			p.Stroke(r, ch.hairline, 14, 1)
+		rail.Draw(func(p *ui.Painter, r ui.Rect) {
+			p.Fill(r, ch.plate, 0)
+			p.Stroke(ui.Rect{X: r.X, Y: r.Y, W: r.W, H: 1}, ch.hairline, 0, 1)
 		})
-		a.dockBody(c, dock, transfers)
+		a.railBody(c, rail, transfers)
 	})
 }
 
-// dockBody fills the transfers dock: its title bar, then the queue or
-// the quiet state that says there is none.
-func (a *App) dockBody(c *ui.Context, dock ui.Element, transfers []store.Transfer) {
+// railBody fills the light rail: its title, up to three transfers side by
+// side, and the two things that can still be done to the queue.
+func (a *App) railBody(c *ui.Context, rail ui.Element, transfers []store.Transfer) {
 	t := c.Theme()
-	ch := chromeOf(t)
 
-	dock.Children(func() {
-		ui.Row(c).FillWidth().Padding(10, 12).Gap(8).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, "Transfers").FontSize(typeBody).FontWeight(weightMedium).TextColor(t.Text)
-			if n := a.activeTransfers(); n > 0 {
-				ctlBadge(c, formatCount(n), t.Accent)
-			}
-			ui.Spacer(c)
-			if len(transfers) > 0 {
-				clear := ctlIconButtonBare(c, "Clear finished")
-				clear.Children(func() { ui.Icon(c, iconTrash).FontSize(13).TextColor(t.TextMuted) })
-				if clear.Clicked() {
-					a.clearTransfers()
-				}
-			}
-			close := ctlIconButtonBare(c, "Close transfers")
-			close.Children(func() {
-				ui.Icon(c, iconClose).FontSize(12).TextColor(t.TextMuted)
-			})
-			if close.Clicked() {
-				a.transfersOpen = false
-			}
-		})
-
+	rail.Children(func() {
 		if len(transfers) == 0 {
-			ui.Column(c).FillWidth().Padding(10, 20, 24, 20).Center().Gap(6).Children(func() {
-				mark := ui.Box(c).Size(38, 38).Radius(19).Center().Shrink(0).
-					Background(ui.Transparent).Border(0, ui.Transparent)
-				mark.Draw(func(p *ui.Painter, r ui.Rect) {
-					p.Fill(r, ch.inset, 19)
-				})
-				mark.Children(func() {
-					ui.Icon(c, iconTransfer).FontSize(18).TextColor(t.TextMuted)
-				})
-				ui.Text(c, "No transfers yet").FontSize(typeBody).FontWeight(weightMedium).TextColor(t.Text)
-				ui.Text(c, "Uploads and downloads will show up here.").
-					FontSize(typeCaption).
-					TextColor(t.TextMuted).
-					TextAlign(ui.Center)
+			ui.Row(c).Fill().Padding(0, 14).Gap(9).AlignItems(ui.Center).Children(func() {
+				ui.Icon(c, iconTransfer).FontSize(15).TextColor(t.TextMuted).Shrink(0)
+				ui.Text(c, "No transfers yet").FontSize(typeSmall).TextColor(t.TextMuted)
+				ui.Spacer(c)
+				close := ctlIconButtonBare(c, "Close transfers")
+				close.Children(func() { ui.Icon(c, iconClose).FontSize(12).TextColor(t.TextMuted) })
+				if close.Clicked() {
+					a.transfersOpen = false
+				}
 			})
 			return
 		}
 
-		ui.Scroll(c).Grow(1).Children(func() {
-			ui.Column(c).FillWidth().Padding(4, 8, 8, 8).Gap(2).Children(func() {
-				for _, tr := range transfers {
-					a.transferRow(c, tr)
+		shown := transfers
+		if len(shown) > 3 {
+			shown = shown[:3]
+		}
+
+		ui.Row(c).Fill().Padding(8, 14, 10, 14).Gap(16).AlignItems(ui.Center).Children(func() {
+			ui.Column(c).Gap(2).Shrink(0).Children(func() {
+				ui.Row(c).Gap(7).AlignItems(ui.Center).Children(func() {
+					ui.Text(c, "Transfers").FontSize(typeBody).FontWeight(weightMedium).TextColor(t.Text)
+					if n := a.activeTransfers(); n > 0 {
+						ctlBadge(c, formatCount(n), t.Accent)
+					}
+				})
+				if rest := len(transfers) - len(shown); rest > 0 {
+					ui.Text(c, fmt.Sprintf("+%d more", rest)).FontSize(typeMicro).TextColor(t.TextMuted)
 				}
 			})
+
+			for _, x := range shown {
+				a.railItem(c, x)
+			}
+
+			ui.Spacer(c)
+			clear := ctlIconButtonBare(c, "Clear finished")
+			clear.Children(func() { ui.Icon(c, iconTrash).FontSize(13).TextColor(t.TextMuted) })
+			if clear.Clicked() {
+				a.clearTransfers()
+			}
+			close := ctlIconButtonBare(c, "Close transfers")
+			close.Children(func() { ui.Icon(c, iconClose).FontSize(12).TextColor(t.TextMuted) })
+			if close.Clicked() {
+				a.transfersOpen = false
+			}
 		})
 	})
 }
 
-// transferRow is one transfer: what it is, how far along, and the one
-// thing that can still be done to it.
-func (a *App) transferRow(c *ui.Context, x store.Transfer) {
+// railItem is one transfer on the light rail: what it is, how far along,
+// and the one thing that can still be done to it.
+func (a *App) railItem(c *ui.Context, x store.Transfer) {
 	t := c.Theme()
 
-	glyph, tint := iconDownload, t.Accent
-	if x.Kind == store.TransferKind("upload") {
-		glyph, tint = iconUpload, t.Success
+	glyph := iconDownload
+	if x.Kind == store.KindUpload {
+		glyph = iconUpload
 	}
 
-	ui.Row(c.Key(x.ID)).FillWidth().Padding(6, 6).Gap(9).AlignItems(ui.Center).
-		Radius(7).Children(func() {
-		ui.Icon(c, glyph).FontSize(14).TextColor(tint).Shrink(0)
-
-		ui.Column(c).Grow(1).Gap(3).Children(func() {
-			ui.Text(c, x.Name).FontSize(typeBody).SingleLine().Ellipsis("…")
-			ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
-				ui.Text(c, transferState(x)).FontSize(typeCaption).TextColor(t.TextMuted).SingleLine()
-				if x.Size > 0 {
-					ui.Text(c, fmt.Sprintf("%s / %s", formatBytes(x.Done), formatBytes(x.Size))).
-						FontSize(typeCaption).
-						TextColor(t.TextMuted).
-						SingleLine()
+	ui.Column(c.Key(x.ID)).Grow(3).Shrink(1).MinWidth(150).Gap(5).Children(func() {
+		ui.Row(c).FillWidth().Gap(7).AlignItems(ui.Center).Children(func() {
+			ui.Icon(c, glyph).FontSize(13).TextColor(t.TextMuted).Shrink(0)
+			ui.Text(c, x.Name).FontSize(typeSmall).FontWeight(weightMedium).Grow(1).
+				SingleLine().Ellipsis("…")
+			if x.Error != "" {
+				ui.Text(c, x.Error).FontSize(typeMicro).TextColor(t.Danger).SingleLine().Ellipsis("…").Shrink(0)
+			} else if x.Size > 0 {
+				ui.Text(c, fmt.Sprintf("%s / %s", formatBytes(x.Done), formatBytes(x.Size))).
+					FontSize(typeCaption).Font(monoFamily).TextColor(t.TextMuted).Shrink(0)
+			} else {
+				ui.Text(c, transferState(x)).FontSize(typeMicro).TextColor(t.TextMuted).Shrink(0)
+			}
+			if !x.Finished() {
+				cancel := ctlIconButtonBare(c, "Cancel "+x.Name)
+				cancel.Children(func() { ui.Icon(c, iconClose).FontSize(10).TextColor(t.TextMuted) })
+				if cancel.Clicked() {
+					a.cancelTransfer(x.ID)
 				}
-				if x.Error != "" {
-					ui.Text(c, x.Error).FontSize(typeCaption).TextColor(t.Danger).SingleLine().Ellipsis("…")
-				}
-			})
-			if x.Size > 0 && !x.Finished() {
-				ctlMeter(c, float64(x.Done)/float64(x.Size)).FillWidth()
+			} else {
+				ui.Icon(c, transferGlyph(x)).FontSize(11).TextColor(transferTint(x, t)).Shrink(0)
 			}
 		})
-
-		if !x.Finished() {
-			cancel := ctlIconButtonBare(c, "Cancel "+x.Name)
-			cancel.Children(func() { ui.Icon(c, iconClose).FontSize(12).TextColor(t.TextMuted) })
-			if cancel.Clicked() {
-				a.cancelTransfer(x.ID)
-			}
-		} else {
-			ui.Icon(c, transferGlyph(x)).FontSize(12).TextColor(transferTint(x, t))
+		if x.Size > 0 && !x.Finished() {
+			ui.Row(c).FillWidth().Gap(7).AlignItems(ui.Center).Children(func() {
+				ctlMeter(c, float64(x.Done)/float64(x.Size)).Grow(1)
+				ui.Text(c, fmt.Sprintf("%d%%", int(100*float64(x.Done)/float64(x.Size)))).
+					FontSize(typeCaption).Font(monoFamily).FontWeight(weightMedium).
+					TextColor(t.Accent).Shrink(0)
+			})
 		}
 	})
 }

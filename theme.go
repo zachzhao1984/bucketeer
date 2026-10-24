@@ -4,12 +4,13 @@ import "github.com/egoist/mygo/ui"
 
 // The palette Bucketeer draws with, taken from the reference client.
 //
-// The window is two planes: a light sidebar, and a canvas for content.
-// Controls are white plates with a hairline and a shadow so faint it only
-// shows on a light page. One accent — a warm orange — marks the chosen
-// place and the one action a screen wants. Nothing is bevelled but the
-// drive plate: the connection's mark is the one deliberately physical
-// thing in the window, because a bucket is a place things live.
+// The window is two planes: a sidebar, and a canvas for content. The
+// palette is Midnight: deep warm surfaces, one emerald accent, hierarchy
+// carried by weight rather than color, and progress that glows — the
+// night-shift workbench. The light appearance is its daylight: warm
+// paper, the same emerald, the same quiet. The connection's mark is the
+// one deliberately physical thing in the window, because a bucket is a
+// place things live.
 
 func bucketeerTheme(dark bool) *ui.Theme {
 	if dark {
@@ -20,52 +21,52 @@ func bucketeerTheme(dark bool) *ui.Theme {
 
 func lightTheme() *ui.Theme {
 	t := ui.LightTheme()
-	t.Background = ui.Hex("#F7F7F7") // behind everything: the sidebar
-	t.Surface = ui.Hex("#FFFFFF")    // the content canvas
-	t.SurfaceHover = ui.Hex("#F4F4F5")
-	t.SurfacePressed = ui.Hex("#EBEBED")
-	t.Border = ui.Hex("#E4E4E7") // a hairline
-	t.Text = ui.Hex("#1D1D1F")
-	t.TextMuted = ui.Hex("#6C6C71")
-	t.Accent = ui.Hex("#C74E15")
-	t.AccentHover = ui.Hex("#B74511")
-	t.AccentPressed = ui.Hex("#A63D0E")
+	t.Background = ui.Hex("#F1EFE7") // behind everything: the sidebar
+	t.Surface = ui.Hex("#FBFAF6")    // the content canvas
+	t.SurfaceHover = ui.Hex("#F3F2EA")
+	t.SurfacePressed = ui.Hex("#EAE8DD")
+	t.Border = ui.Hex("#E0DED2") // a hairline
+	t.Text = ui.Hex("#1F2421")
+	t.TextMuted = ui.Hex("#5C6158")
+	t.Accent = ui.Hex("#0A7D58")
+	t.AccentHover = ui.Hex("#086B4B")
+	t.AccentPressed = ui.Hex("#065A3F")
 	t.AccentText = ui.Hex("#FFFFFF")
-	t.Danger = ui.Hex("#D93025")
-	t.Warning = ui.Hex("#B25000")
-	t.Success = ui.Hex("#188038")
-	t.Selection = ui.Hex("#FBE9DD")
-	t.Focus = ui.RGBA(199, 78, 21, 0.45)
-	t.Scrollbar = ui.RGBA(0, 0, 0, 0.20)
-	t.Inverse = ui.Hex("#1D1D1F")
-	t.InverseText = ui.Hex("#FFFFFF")
-	t.Radius = 7
+	t.Danger = ui.Hex("#C53727")
+	t.Warning = ui.Hex("#9A5B00")
+	t.Success = ui.Hex("#0A7D58")
+	t.Selection = ui.Hex("#D7F0E3")
+	t.Focus = ui.RGBA(10, 125, 88, 0.40)
+	t.Scrollbar = ui.RGBA(31, 36, 33, 0.20)
+	t.Inverse = ui.Hex("#1F2421")
+	t.InverseText = ui.Hex("#FBFAF6")
+	t.Radius = 8
 	t.Spacing = 4
 	return t
 }
 
 func darkTheme() *ui.Theme {
 	t := ui.DarkTheme()
-	t.Background = ui.Hex("#1E1E20")
-	t.Surface = ui.Hex("#161618")
-	t.SurfaceHover = ui.Hex("#26262A")
-	t.SurfacePressed = ui.Hex("#303036")
-	t.Border = ui.Hex("#38383C")
-	t.Text = ui.Hex("#F5F5F7")
-	t.TextMuted = ui.Hex("#98989F")
-	t.Accent = ui.Hex("#C25118")
-	t.AccentHover = ui.Hex("#C94F16")
-	t.AccentPressed = ui.Hex("#B74511")
-	t.AccentText = ui.Hex("#FFFFFF")
+	t.Background = ui.Hex("#1A1714") // behind everything: the sidebar
+	t.Surface = ui.Hex("#151312")    // the content canvas
+	t.SurfaceHover = ui.Hex("#26221E")
+	t.SurfacePressed = ui.Hex("#2D2925")
+	t.Border = ui.Hex("#2E2A25")
+	t.Text = ui.Hex("#EDE7DC")
+	t.TextMuted = ui.Hex("#A69E8F")
+	t.Accent = ui.Hex("#34D399")
+	t.AccentHover = ui.Hex("#4AE0A8")
+	t.AccentPressed = ui.Hex("#2BC485")
+	t.AccentText = ui.Hex("#0B241A")
 	t.Danger = ui.Hex("#FF6B60")
 	t.Warning = ui.Hex("#FFB340")
-	t.Success = ui.Hex("#3DD68C")
-	t.Selection = ui.Hex("#372013")
-	t.Focus = ui.RGBA(255, 133, 77, 0.55)
-	t.Scrollbar = ui.RGBA(255, 255, 255, 0.22)
-	t.Inverse = ui.Hex("#F5F5F7")
-	t.InverseText = ui.Hex("#1D1D1F")
-	t.Radius = 7
+	t.Success = ui.Hex("#34D399")
+	t.Selection = ui.Hex("#1F3A2C")
+	t.Focus = ui.RGBA(52, 211, 153, 0.50)
+	t.Scrollbar = ui.RGBA(232, 228, 218, 0.22)
+	t.Inverse = ui.Hex("#EDE7DC")
+	t.InverseText = ui.Hex("#151312")
+	t.Radius = 8
 	t.Spacing = 4
 	return t
 }
@@ -118,29 +119,29 @@ type chrome struct {
 func chromeOf(t *ui.Theme) chrome {
 	if t.Dark {
 		return chrome{
-			sidebar: ui.Hex("#1E1E20"),
-			canvas:  ui.Hex("#161618"),
-			plate:   ui.Hex("#232326"),
-			inset:   ui.Hex("#26262A"),
-			well:    ui.Hex("#232326"),
+			sidebar: ui.Hex("#1A1714"),
+			canvas:  ui.Hex("#151312"),
+			plate:   ui.Hex("#1F1C19"),
+			inset:   ui.Hex("#211E1A"),
+			well:    ui.Hex("#1F1C19"),
 
-			hairline:      ui.Hex("#38383C"),
-			hairlineFaint: ui.Hex("#2A2A2E"),
+			hairline:      ui.Hex("#2E2A25"),
+			hairlineFaint: ui.Hex("#262320"),
 
-			hover:   ui.RGBA(255, 255, 255, 0.07),
-			pressed: ui.RGBA(255, 255, 255, 0.04),
+			hover:   ui.RGBA(255, 255, 255, 0.05),
+			pressed: ui.RGBA(255, 255, 255, 0.03),
 
-			selected:   ui.Hex("#C25118"),
-			selectedOn: ui.Hex("#FFFFFF"),
-			accentOn:   ui.Hex("#FF9A62"),
+			selected:   ui.Hex("#34D399"),
+			selectedOn: ui.Hex("#0B241A"),
+			accentOn:   ui.Hex("#6EE7B7"),
 
-			floatShadow: ui.RGBA(0, 0, 0, 0.55),
-			plateShadow: ui.RGBA(0, 0, 0, 0.35),
+			floatShadow: ui.RGBA(0, 0, 0, 0.50),
+			plateShadow: ui.RGBA(0, 0, 0, 0.30),
 
-			accentFill:    ui.Hex("#C25118"),
-			accentFillHov: ui.Hex("#C94F16"),
-			accentFillPrs: ui.Hex("#B74511"),
-			accentOnFill:  ui.Hex("#FFFFFF"),
+			accentFill:    ui.Hex("#34D399"),
+			accentFillHov: ui.Hex("#4AE0A8"),
+			accentFillPrs: ui.Hex("#2BC485"),
+			accentOnFill:  ui.Hex("#0B241A"),
 
 			dangerFill:    ui.Hex("#C9342A"),
 			dangerFillHov: ui.Hex("#DC4136"),
@@ -150,32 +151,32 @@ func chromeOf(t *ui.Theme) chrome {
 		}
 	}
 	return chrome{
-		sidebar: ui.Hex("#F7F7F7"),
-		canvas:  ui.Hex("#FFFFFF"),
+		sidebar: ui.Hex("#F1EFE7"),
+		canvas:  ui.Hex("#FBFAF6"),
 		plate:   ui.Hex("#FFFFFF"),
-		inset:   ui.Hex("#F2F2F4"),
-		well:    ui.Hex("#F2F2F4"),
+		inset:   ui.Hex("#F3F2EA"),
+		well:    ui.Hex("#F3F2EA"),
 
-		hairline:      ui.Hex("#E4E4E7"),
-		hairlineFaint: ui.Hex("#EFEFF1"),
+		hairline:      ui.Hex("#E0DED2"),
+		hairlineFaint: ui.Hex("#ECEAE0"),
 
-		hover:   ui.RGBA(0, 0, 0, 0.045),
-		pressed: ui.RGBA(0, 0, 0, 0.085),
+		hover:   ui.RGBA(31, 36, 33, 0.045),
+		pressed: ui.RGBA(31, 36, 33, 0.085),
 
-		selected:   ui.Hex("#C74E15"),
+		selected:   ui.Hex("#0A7D58"),
 		selectedOn: ui.Hex("#FFFFFF"),
-		accentOn:   ui.Hex("#C74E15"),
+		accentOn:   ui.Hex("#0A7D58"),
 
-		floatShadow: ui.RGBA(0, 0, 0, 0.16),
-		plateShadow: ui.RGBA(0, 0, 0, 0.05),
+		floatShadow: ui.RGBA(31, 36, 33, 0.16),
+		plateShadow: ui.RGBA(31, 36, 33, 0.05),
 
-		accentFill:    ui.Hex("#C74E15"),
-		accentFillHov: ui.Hex("#B74511"),
-		accentFillPrs: ui.Hex("#A63D0E"),
+		accentFill:    ui.Hex("#0A7D58"),
+		accentFillHov: ui.Hex("#086B4B"),
+		accentFillPrs: ui.Hex("#065A3F"),
 		accentOnFill:  ui.Hex("#FFFFFF"),
 
-		dangerFill:    ui.Hex("#D93025"),
-		dangerFillHov: ui.Hex("#BE2A20"),
+		dangerFill:    ui.Hex("#C53727"),
+		dangerFillHov: ui.Hex("#A82D20"),
 		dangerOnFill:  ui.Hex("#FFFFFF"),
 
 		scrim: ui.RGBA(0, 0, 0, 0.22),
@@ -201,6 +202,9 @@ const (
 	weightMedium = 500
 	weightSemi   = 600
 )
+
+// monoFamily is the face data reads in: sizes, speeds, percentages.
+const monoFamily = "Menlo"
 
 /* -------------------------------------------------------------------------
    Colors for the kinds of file

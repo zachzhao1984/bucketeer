@@ -410,6 +410,7 @@ func TestFlows(t *testing.T) {
 		t.Fatalf("the transfers dock is missing: %v", tester.Texts())
 	}
 	a.transfersOpen = false
+	tester.Frame()
 
 	// Settings is one sheet with three pages.
 	if err := tester.Click("Settings"); err != nil {

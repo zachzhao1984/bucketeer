@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Bucketeer — 施工图 Blueprint</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { width:1440px; height:1000px; overflow:hidden; }
+  body {
+    background:#E4E6E9;
+    display:flex; align-items:center; justify-content:center;
+    font-family:"SF Mono","PingFang SC",ui-monospace,Menlo,monospace;
+    -webkit-font-smoothing:antialiased;
+    color:#EAF2FB;
+  }
+
+  /* ---------- mac window shell ---------- */
+  .window {
+    width:1184px; border-radius:12px; overflow:hidden;
+    background:#E8EAED; border:1px solid #B7BBC2;
+    box-shadow:0 30px 70px rgba(18,30,48,.35);
+  }
+  .titlebar {
+    height:36px; position:relative;
+    display:flex; align-items:center; justify-content:center;
+    border-bottom:1px solid #CFD2D7;
+  }
+  .lights { position:absolute; left:14px; top:12px; display:flex; gap:8px; }
+  .lights i { width:12px; height:12px; border-radius:50%; display:block; }
+  .lights .r { background:#FF5F57; } .lights .y { background:#FEBC2E; } .lights .g { background:#28C840; }
+  .titlebar span { font-size:12px; color:#61666E; letter-spacing:.5px; }
+
+  /* ---------- app screen : blueprint ---------- */
+  .app {
+    width:1180px; height:820px; background:#143A66; display:flex;
+    background-image:
+      linear-gradient(rgba(255,255,255,.12) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.12) 1px, transparent 1px),
+      linear-gradient(rgba(255,255,255,.07) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.07) 1px, transparent 1px);
+    background-size:120px 120px, 120px 120px, 24px 24px, 24px 24px;
+  }
+
+  /* ---------- sidebar ---------- */
+  .side {
+    width:188px; flex:none; border-right:1.5px solid #EAF2FB;
+    padding:20px 16px 16px; display:flex; flex-direction:column;
+  }
+  .brand { display:flex; align-items:center; gap:8px; }
+  .brand b { font-size:15px; font-weight:700; letter-spacing:2.5px; }
+  .brand-sub { font-size:12px; color:rgba(255,255,255,.58); margin-top:6px; letter-spacing:1px; }
+  .brand-rule { height:1px; background:rgba(234,242,251,.85); margin:14px 0 16px; }
+  nav { display:flex; flex-direction:column; gap:12px; }
+  .navitem {
+    display:flex; align-items:center; justify-content:space-between;
+    font-size:13px; letter-spacing:1px; padding:8px 10px;
+    border:1px solid transparent;
+  }
+  .navitem em { font-style:normal; font-size:12px; color:rgba(255,255,255,.58); }
+  .navitem.sel {
+    border:1px solid #EAF2FB;
+    outline:1.5px solid #EAF2FB; outline-offset:3px;
+  }
+  .side-mid { margin-top:auto; }
+  .vernote { font-size:12px; color:rgba(255,255,255,.58); letter-spacing:.5px; line-height:1.7; }
+  .conn { border:1.5px solid #EAF2FB; padding:10px 10px 9px; margin-top:10px; }
+  .conn-row { display:flex; align-items:center; gap:7px; font-size:14px; font-weight:700; }
+  .conn-row i { width:7px; height:7px; background:#F2A33C; display:block; }
+  .conn-sub { font-size:12px; color:rgba(255,255,255,.58); margin-top:5px; letter-spacing:.5px; }
+
+  /* ---------- sheet frame ---------- */
+  .main { flex:1; min-width:0; padding:10px; display:flex; }
+  .sheet {
+    flex:1; min-width:0; display:flex; flex-direction:column;
+    border:1.5px solid rgba(234,242,251,.9);
+  }
+
+  /* header 图签行 */
+  .shead {
+    height:52px; flex:none; border-bottom:1px solid rgba(234,242,251,.85);
+    display:flex; align-items:center; justify-content:space-between; padding:0 14px;
+  }
+  .crumb { font-size:14px; display:flex; gap:8px; align-items:center; }
+  .crumb .sep { color:rgba(255,255,255,.58); }
+  .hctrl { display:flex; align-items:center; gap:8px; }
+  .filter {
+    width:172px; height:30px; border:1.5px solid #EAF2FB;
+    display:flex; align-items:center; gap:8px; padding:0 10px;
+  }
+  .filter .flab { font-size:12px; color:rgba(255,255,255,.58); letter-spacing:1px; }
+  .filter .fval { font-size:13px; }
+  .btn {
+    height:30px; border:1.5px solid #EAF2FB; background:transparent;
+    color:#EAF2FB; font-family:inherit; font-size:12px; letter-spacing:1px;
+    padding:0 12px; display:flex; align-items:center;
+  }
+
+  /* ---------- file grid ---------- */
+  .grid {
+    flex:1; min-height:0; padding:16px 16px 12px;
+    display:grid; grid-template-columns:repeat(5,1fr);
+    grid-auto-rows:196px; gap:14px 16px;
+  }
+  .cell { display:flex; flex-direction:column; min-width:0; }
+  .sno { font-size:12px; color:rgba(255,255,255,.58); letter-spacing:1px; margin-bottom:5px; display:flex; justify-content:space-between; }
+  .sno b { color:rgba(255,255,255,.58); font-weight:400; }
+  .thumb {
+    height:118px; flex:none; position:relative; overflow:hidden;
+    border:1px solid rgba(234,242,251,.9);
+  }
+  .thumb i.x, .thumb i.y {
+    position:absolute; left:50%; top:50%; width:220px; height:1px;
+    background:rgba(255,255,255,.30);
+  }
+  .thumb i.x { transform:translate(-50%,-50%) rotate(45deg); }
+  .thumb i.y { transform:translate(-50%,-50%) rotate(-45deg); }
+  .win {
+    position:absolute; left:8px; right:8px; top:8px; bottom:26px;
+    border:1px solid rgba(234,242,251,.9); background:#0F2E52;
+  }
+  .win img { display:block; width:100%; height:100%; object-fit:cover; opacity:.9; }
+  .play {
+    position:absolute; left:50%; top:calc(50% - 9px); transform:translate(-50%,-50%);
+    width:30px; height:30px; border:1.5px solid #EAF2FB; border-radius:50%;
+    background:#143A66; display:flex; align-items:center; justify-content:center;
+  }
+  .play i { width:0; height:0; border-left:8px solid #EAF2FB; border-top:5px solid transparent; border-bottom:5px solid transparent; margin-left:2px; }
+  .tag {
+    position:absolute; top:8px; right:8px; font-size:12px; color:rgba(255,255,255,.58);
+    background:#143A66; padding:1px 5px; border:1px solid rgba(234,242,251,.5);
+  }
+  /* dimension line */
+  .dim { position:absolute; left:8px; right:8px; bottom:7px; height:9px;
+         border-left:1px solid rgba(234,242,251,.7); border-right:1px solid rgba(234,242,251,.7); }
+  .dim::before { content:''; position:absolute; left:0; right:0; top:4px; height:1px; background:rgba(255,255,255,.45); }
+  .dim span, .updim span {
+    position:absolute; left:50%; transform:translateX(-50%); top:-3px;
+    font-size:12px; line-height:14px; color:rgba(255,255,255,.58);
+    background:#143A66; padding:0 6px; white-space:nowrap;
+  }
+  .updim { position:absolute; left:8px; right:8px; bottom:7px; height:9px;
+           border-left:1px solid #EAF2FB; border-right:1px solid #EAF2FB; }
+  .updim::before { content:''; position:absolute; left:0; right:0; top:4px; height:1px; background:rgba(255,255,255,.45); }
+  .upfill { position:absolute; left:0; top:3px; height:3px; width:78%; background:#F2A33C; }
+  .updim span { color:#F2A33C; z-index:2; }
+  .upfill { z-index:1; }
+  /* ext thumbs */
+  .extwrap { position:absolute; inset:8px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; }
+  .ext { font-size:20px; font-weight:700; letter-spacing:3px; }
+  .extsub { font-size:12px; color:rgba(255,255,255,.58); letter-spacing:1px; }
+  .fname { font-size:14px; margin-top:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .fsize { font-size:12px; color:rgba(255,255,255,.58); margin-top:3px; letter-spacing:.5px; }
+
+  .cell.sel .thumb { border:1px solid #EAF2FB; outline:1.5px solid #EAF2FB; outline-offset:3px; }
+
+  /* ---------- title block 图签章 ---------- */
+  .tblock { grid-column:4 / 6; grid-row:3; align-self:end; min-width:0; }
+  .tb-note { font-size:12px; color:rgba(255,255,255,.58); letter-spacing:2px; text-align:center; margin-bottom:8px; }
+  .tb { border:1.5px solid #EAF2FB; }
+  .tb-r1 { position:relative; text-align:center; font-size:15px; font-weight:700; letter-spacing:4px; padding:8px 0 7px; border-bottom:1px solid rgba(234,242,251,.85); }
+  .tb-r1 svg { position:absolute; right:9px; top:7px; }
+  .tb-r2 { display:grid; grid-template-columns:1.3fr 1fr; border-bottom:1px solid rgba(234,242,251,.85); }
+  .tb-r3 { display:grid; grid-template-columns:1fr 1fr; border-bottom:1px solid rgba(234,242,251,.85); }
+  .tb-c { padding:6px 9px 5px; min-width:0; }
+  .tb-c + .tb-c { border-left:1px solid rgba(234,242,251,.85); }
+  .tb-lab { font-size:12px; color:rgba(255,255,255,.58); letter-spacing:1px; }
+  .tb-val { font-size:14px; margin-top:2px; white-space:nowrap; }
+  .tb-r4 { font-size:12px; color:rgba(255,255,255,.58); letter-spacing:1px; padding:5px 9px; display:flex; justify-content:space-between; }
+
+  /* ---------- transfer bar ---------- */
+  .xbar {
+    height:92px; flex:none; border-top:1px solid rgba(234,242,251,.85);
+    display:grid; grid-template-columns:34px minmax(0,1fr) 300px 64px 96px 96px;
+    grid-template-rows:24px 33px 33px;
+  }
+  .xc {
+    display:flex; align-items:center; padding:0 10px; min-width:0;
+    border-left:1px solid rgba(234,242,251,.5); font-size:13px;
+  }
+  .xc:first-child { border-left:none; justify-content:center; padding:0; }
+  .xh { font-size:12px; color:rgba(255,255,255,.58); letter-spacing:1px; border-bottom:1px solid rgba(234,242,251,.5); }
+  .xname { gap:8px; white-space:nowrap; overflow:hidden; }
+  .xname svg { flex:none; }
+  .track { width:100%; height:9px; border:1px solid rgba(234,242,251,.7); position:relative; }
+  .track i { position:absolute; left:0; top:0; bottom:0; background:#F2A33C; display:block; }
+  .xpct-o { color:#F2A33C; font-weight:700; }
+  .xpct-w { color:#EAF2FB; }
+  .xaux { color:rgba(255,255,255,.58); font-size:12px; letter-spacing:.5px; }
+</style>
+</head>
+<body>
+  <div class="window">
+    <div class="titlebar">
+      <div class="lights"><i class="r"></i><i class="y"></i><i class="g"></i></div>
+      <span>Bucketeer — media</span>
+    </div>
+    <div class="app">
+
+      <!-- sidebar -->
+      <aside class="side">
+        <div class="brand">
+          <svg width="24" height="20" viewBox="0 0 24 20" fill="none" stroke="#EAF2FB" stroke-width="1.5">
+            <path d="M3 6 H21 L18.5 18 H5.5 Z"/><path d="M7 6 C7 2.5 17 2.5 17 6"/>
+            <path d="M4.4 10.5 H19.6" opacity=".55"/>
+          </svg>
+          <b>BUCKETEER</b>
+        </div>
+        <div class="brand-sub">对象存储 · 施工图视图</div>
+        <div class="brand-rule"></div>
+        <nav>
+          <div class="navitem">DASHBOARD</div>
+          <div class="navitem sel">ALL FILES <em>13</em></div>
+          <div class="navitem">RECENT FILES <em>24</em></div>
+          <div class="navitem">SETTINGS</div>
+        </nav>
+        <div class="side-mid">
+          <div class="vernote">BUILD 2026.10<br>REGION AUTO · R2</div>
+          <div class="conn">
+            <div class="conn-row"><i></i>R2 主力<span style="margin-left:auto; font-weight:400; font-size:12px; color:rgba(255,255,255,.58)">已连接</span></div>
+            <div class="conn-sub">media · 2.4 GB</div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- sheet -->
+      <div class="main">
+        <div class="sheet">
+
+          <div class="shead">
+            <div class="crumb"><span>media</span><span class="sep">/</span><span>photos</span><span class="sep">/</span><span>2026-10</span></div>
+            <div class="hctrl">
+              <div class="filter"><span class="flab">FILTER</span><span class="fval">IMG_24*</span></div>
+              <div class="btn">TYPE ALL</div>
+              <div class="btn">SORT DATE</div>
+              <div class="btn">GRID·LIST</div>
+            </div>
+          </div>
+
+          <div class="grid">
+            <!-- A-01 -->
+            <div class="cell">
+              <div class="sno"><span>A-01</span><b>JPG</b></div>
+              <div class="thumb"><i class="x"></i><i class="y"></i>
+                <div class="win"><img src="seed-11.jpg" alt=""></div>
+                <div class="dim"><span>4032 PX</span></div>
+              </div>
+              <div class="fname">IMG_2417.jpg</div>
+              <div class="fsize">3.4 MB</div>
+            </div>
+            <!-- A-02 video -->
+            <div class="cell">
+              <div class="sno"><span>A-02</span><b>MP4</b></div>
+              <div class="thumb"><i class="x"></i><i class="y"></i>
+                <div class="win"><img src="seed-13.jpg" alt=""></div>
+                <div class="play"><i></i></div>
+                <div class="tag">04:32</div>
+                <div class="dim"><span>1920 × 1080</span></div>
+              </div>
+              <div class="fname">sunrise-timelapse.mp4</div>
+              <div class="fsize">482 MB</div>
+            </div>
+            <!-- A-03 -->
+            <div class="cell">
+              <div class="sno"><span>A-03</span><b>PNG</b></div>
+              <div class="thumb"><i class="x"></i><i class="y"></i>
+                <div class="win"><img src="seed-15.jpg" alt=""></div>
+                <div class="dim"><span>1024 PX</span></div>
+              </div>
+              <div class="fname">album-cover.png</div>
+              <div class="fsize">1.1 MB</div>
+            </div>
+            <!-- A-04 pdf -->
+            <div class="cell">
+              <div class="sno"><span>A-04</span><b>DOC</b></div>
+              <div class="thumb"><i class="x"></i><i class="y"></i>
+                <div class="extwrap"><div class="ext">PDF</div><div class="extsub">595 × 842</div></div>
+              </div>
+              <div class="fname">field-notes.pdf</div>
+              <div class="fsize">82 KB</div>
+            </div>
+            <!-- A-05 zip -->
+            <div class="cell">
+              <div class="sno"><span>A-05</span><b>ARC</b></div>
+              <div class="thumb"><i class="x"></i><i class="y"></i>
+                <div class="extwrap"><div class="ext">ZIP</div><div class="extsub">2,412 OBJ</div></div>
+              </div>
+              <div class="fname">backup-2026-10.zip</div>
+              <div class="fsize">1.9 GB</div>
+            </div>
+            <!-- A-06 m4a -->
+            <div class="cell">
+              <div class="sno"><span>A-06</span><b>AUD</b></div>
+              <div class="thumb"><i class="x"></i><i class="y"></i>
+                <div class="extwrap"><div class="ext">M4A</div><div class="extsub">42:17</div></div>
+              </div>
+              <div class="fname">podcast-ep-42.m4a</div>
+              <div class="fsize">36 MB</div>
+            </div>
+            <!-- A-07 -->
+            <div class="cell">
+              <div class="sno"><span>A-07</span><b>JPG</b></div>
+              <div class="thumb"><i class="x"></i><i class="y"></i>
+                <div class="win"><img src="seed-17.jpg" alt=""></div>
+                <div class="dim"><span>4032 PX</span></div>
+              </div>
+              <div class="fname">IMG_2418.jpg</div>
+              <div class="fsize">2.9 MB</div>
+            </div>
+            <!-- A-08 svg -->
+            <div class="cell">
+              <div class="sno"><span>A-08</span><b>VEC</b></div>
+              <div class="thumb"><i class="x"></i><i class="y"></i>
+                <div class="extwrap">
+                  <svg width="46" height="30" viewBox="0 0 46 30" fill="none" stroke="#EAF2FB" stroke-width="1.5">
+                    <circle cx="11" cy="15" r="9"/><polygon points="24,26 33,6 42,26"/>
+                  </svg>
+                  <div class="ext">SVG</div><div class="extsub">512 × 512</div>
+                </div>
+              </div>
+              <div class="fname">logo-dark.svg</div>
+              <div class="fsize">14 KB</div>
+            </div>
+            <!-- A-09 docx -->
+            <div class="cell">
+              <div class="sno"><span>A-09</span><b>DOC</b></div>
+              <div class="thumb"><i class="x"></i><i class="y"></i>
+                <div class="extwrap"><div class="ext">DOCX</div><div class="extsub">12 PAGES</div></div>
+              </div>
+              <div class="fname">contract-v2.docx</div>
+              <div class="fsize">210 KB</div>
+            </div>
+            <!-- A-10 -->
+            <div class="cell">
+              <div class="sno"><span>A-10</span><b>JPG</b></div>
+              <div class="thumb"><i class="x"></i><i class="y"></i>
+                <div class="win"><img src="seed-19.jpg" alt=""></div>
+                <div class="dim"><span>3024 PX</span></div>
+              </div>
+              <div class="fname">IMG_2419.jpg</div>
+              <div class="fsize">3.1 MB</div>
+            </div>
+            <!-- A-11 -->
+            <div class="cell">
+              <div class="sno"><span>A-11</span><b>PNG</b></div>
+              <div class="thumb"><i class="x"></i><i class="y"></i>
+                <div class="win"><img src="seed-21.jpg" alt=""></div>
+                <div class="dim"><span>2048 PX</span></div>
+              </div>
+              <div class="fname">waveform.png</div>
+              <div class="fsize">640 KB</div>
+            </div>
+            <!-- A-12 md -->
+            <div class="cell">
+              <div class="sno"><span>A-12</span><b>TEXT</b></div>
+              <div class="thumb"><i class="x"></i><i class="y"></i>
+                <div class="extwrap"><div class="ext">MD</div><div class="extsub">128 LINES</div></div>
+              </div>
+              <div class="fname">readme.md</div>
+              <div class="fsize">4 KB</div>
+            </div>
+            <!-- A-13 selected · uploading -->
+            <div class="cell sel">
+              <div class="sno"><span>A-13</span><b style="color:#F2A33C">JPG</b></div>
+              <div class="thumb"><i class="x"></i><i class="y"></i>
+                <div class="win"><img src="seed-23.jpg" alt=""></div>
+                <div class="updim"><span>UPLOAD 78%</span><i class="upfill"></i></div>
+              </div>
+              <div class="fname">IMG_2420.jpg</div>
+              <div class="fsize">3.0 MB</div>
+            </div>
+
+            <!-- title block -->
+            <div class="tblock">
+              <div class="tb-note">请勿按图缩放 · DO NOT SCALE</div>
+              <div class="tb">
+                <div class="tb-r1">BUCKETEER
+                  <svg width="12" height="16" viewBox="0 0 12 16" fill="none" stroke="#EAF2FB" stroke-width="1.2">
+                    <path d="M6 1 L10 11 L6 8.5 L2 11 Z"/><path d="M6 9 V15"/>
+                  </svg>
+                </div>
+                <div class="tb-r2">
+                  <div class="tb-c"><div class="tb-lab">桶名 BUCKET</div><div class="tb-val">R2 主力</div></div>
+                  <div class="tb-c"><div class="tb-lab">SHEET</div><div class="tb-val">A</div></div>
+                </div>
+                <div class="tb-r3">
+                  <div class="tb-c"><div class="tb-lab">DATE</div><div class="tb-val">2026-10</div></div>
+                  <div class="tb-c"><div class="tb-lab">SCALE</div><div class="tb-val">1:1</div></div>
+                </div>
+                <div class="tb-r4"><span>OBJECTS 13</span><span>TOTAL 2.4 GB</span></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- transfer bar -->
+          <div class="xbar">
+            <div class="xc xh"></div>
+            <div class="xc xh">QUEUE</div>
+            <div class="xc xh">PROGRESS</div>
+            <div class="xc xh">PCT</div>
+            <div class="xc xh">RATE</div>
+            <div class="xc xh">ETA</div>
+
+            <div class="xc">
+              <svg width="10" height="12" viewBox="0 0 10 12" fill="none" stroke="#F2A33C" stroke-width="1.5">
+                <path d="M5 11 V2 M1.5 5.5 L5 2 L8.5 5.5"/>
+              </svg>
+            </div>
+            <div class="xc xname">IMG_2420.jpg</div>
+            <div class="xc"><div class="track"><i style="width:78%"></i></div></div>
+            <div class="xc xpct-o">78%</div>
+            <div class="xc xaux">2.4 MB/S</div>
+            <div class="xc xaux">00:00:01</div>
+
+            <div class="xc">
+              <svg width="10" height="12" viewBox="0 0 10 12" fill="none" stroke="#F2A33C" stroke-width="1.5">
+                <path d="M5 11 V2 M1.5 5.5 L5 2 L8.5 5.5"/>
+              </svg>
+            </div>
+            <div class="xc xname">sunset-timelapse.mp4</div>
+            <div class="xc"><div class="track"><i style="width:31%"></i></div></div>
+            <div class="xc xpct-w">31%</div>
+            <div class="xc xaux">1.8 MB/S</div>
+            <div class="xc xaux">00:03:12</div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

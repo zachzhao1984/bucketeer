@@ -1,0 +1,39 @@
+{
+  "nativeViewport": "1440x1000",
+  "candidates": [
+    {
+      "source": "dir-1.html",
+      "name": "01 · 仪器面板 Graphite",
+      "concept": "一台校准好的测量仪器——冷、准,每个读数都可信",
+      "typography": "SF Pro + SF Mono 读数;标题细字重大号",
+      "palette": ["#26282B", "#2E3134", "#F2F0EB", "#2AA8A0"],
+      "traits": ["常驻仪表读数条", "磨砂铝面板质感", "1px 倒角亮边", "LED 状态点"]
+    },
+    {
+      "source": "dir-2.html",
+      "name": "02 · 夜航台 Midnight",
+      "concept": "夜里也不吵的工作台——深而暖,进度自己会发光",
+      "typography": "SF Pro 暖白 + mono 数据;字重层级代替颜色",
+      "palette": ["#14161A", "#1C1F24", "#E8E4DA", "#34D399"],
+      "traits": ["底部整条光轨传输栏", "进度辉光", "大圆角柔影", "暖黑不刺眼"]
+    },
+    {
+      "source": "dir-3.html",
+      "name": "03 · 施工图 Blueprint",
+      "concept": "桶的施工图——一切皆标注,文件长在图纸上",
+      "typography": "SF Mono 主导,标注体;中文 PingFang",
+      "palette": ["#143A66", "#EAF2FB", "#F2A33C"],
+      "traits": ["图纸幅面 + 右下角图签", "每格带图号", "线框化控件", "缩略图带尺寸标注"]
+    },
+    {
+      "source": "baseline-current.png",
+      "kind": "image",
+      "baseline": true,
+      "name": "现状 · 暖橙实物感",
+      "concept": "当前已实现的方向一:Panic 物件感,暖橙强调 + 盘面连接卡",
+      "typography": "SF Pro + mono 数据",
+      "palette": ["#F7F7F7", "#1D1D1F", "#C74E15"],
+      "traits": ["浅色原生", "暖橙强调", "盘面拟物", "悬浮传输托盘"]
+    }
+  ]
+}

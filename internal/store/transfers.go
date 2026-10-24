@@ -381,3 +381,15 @@ func DownloadName(key string) string {
 	}
 	return filepath.Base(name)
 }
+
+// SeedForTest places a transfer in the manager without running it, for
+// interface tests and screenshots.
+func (m *Manager) SeedForTest(x Transfer) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.items == nil {
+		m.items = make(map[string]*transferItem)
+	}
+	m.items[x.ID] = &transferItem{Transfer: x}
+	m.order = append(m.order, x.ID)
+}

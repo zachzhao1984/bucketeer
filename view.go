@@ -145,7 +145,13 @@ func (a *App) sidebar(c *ui.Context) {
 	if compactWindow(c) {
 		width = 208
 	}
-	pane := ui.Column(c).Width(width).FillHeight().Padding(0, 0, 12, 0).Background(ui.Transparent)
+	foot := float32(12)
+	if a.transfersOpen {
+		// The light rail runs along the window's bottom edge; the
+		// connection stands above it, not under it.
+		foot += a.railHeight()
+	}
+	pane := ui.Column(c).Width(width).FillHeight().Padding(0, 0, foot, 0).Background(ui.Transparent)
 	pane = paintMaterial(c, pane)
 
 	pane.Children(func() {

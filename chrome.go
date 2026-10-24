@@ -507,14 +507,24 @@ func ctlMeter(c *ui.Context, value float64) ui.Element {
 	t := c.Theme()
 	ch := chromeOf(t)
 
+	track := ch.inset
+	if t.Dark {
+		// On warm black the inset slot would vanish; the road must read.
+		track = ui.RGBA(255, 255, 255, 0.12)
+	}
 	e := ui.Box(c).Height(6).Shrink(0).Background(ui.Transparent).Border(0, ui.Transparent)
 	return e.Draw(func(p *ui.Painter, r ui.Rect) {
-		p.Fill(r, ch.inset, 3)
+		p.Fill(r, track, 3)
 		v := float32(min(max(value, 0), 1))
 		if v <= 0 {
 			return
 		}
-		p.Fill(ui.Rect{X: r.X, Y: r.Y, W: max(r.H, r.W*v), H: r.H}, t.Accent, 3)
+		bar := ui.Rect{X: r.X, Y: r.Y, W: max(r.H, r.W*v), H: r.H}
+		if t.Dark {
+			// The night shift: progress carries its own light.
+			p.Shadow(bar, 3, 0, 0, 9, 2, t.Accent.Alpha(0.45))
+		}
+		p.Fill(bar, t.Accent, 3)
 	})
 }
 
@@ -522,6 +532,9 @@ func ctlMeter(c *ui.Context, value float64) ui.Element {
 func led(c *ui.Context, color ui.Color, size float32) ui.Element {
 	e := ui.Box(c).Size(size, size).Shrink(0).Background(ui.Transparent)
 	return e.Draw(func(p *ui.Painter, r ui.Rect) {
+		if c.Theme().Dark {
+			p.Shadow(r, size/2, 0, 0, 6, 2, color.Alpha(0.55))
+		}
 		p.Fill(r, color, size/2)
 	})
 }
@@ -551,13 +564,13 @@ func drivePlate(c *ui.Context, name string, size float32) ui.Element {
 	screw := max(2, size*0.075)
 	off := size * 0.17
 	e.Draw(func(p *ui.Painter, r ui.Rect) {
-		p.Fill(r, ui.Hex("#E0762F"), rad)
-		p.Fill(ui.Rect{X: r.X + 1, Y: r.Y + 1, W: r.W - 2, H: r.H * 0.46}, ui.RGBA(255, 255, 255, 0.30), rad)
+		p.Fill(r, ui.Hex("#17A574"), rad)
+		p.Fill(ui.Rect{X: r.X + 1, Y: r.Y + 1, W: r.W - 2, H: r.H * 0.46}, ui.RGBA(255, 255, 255, 0.28), rad)
 		for _, pt := range [][2]float32{
 			{off, off}, {r.W - off, off}, {off, r.H - off}, {r.W - off, r.H - off},
 		} {
 			p.Fill(ui.Rect{X: r.X + pt[0] - screw/2, Y: r.Y + pt[1] - screw/2, W: screw, H: screw},
-				ui.RGBA(70, 30, 8, 0.55), screw/2)
+				ui.RGBA(4, 40, 28, 0.55), screw/2)
 		}
 	})
 	e.Children(func() {

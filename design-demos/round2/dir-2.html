@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Bucketeer — Midnight Emerald</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1440px; height: 1000px; overflow: hidden; }
+  body {
+    background: #0B0C0F;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+    color: #E8E4DA;
+    -webkit-font-smoothing: antialiased;
+  }
+  .mono { font-family: "SF Mono", ui-monospace, Menlo, monospace; }
+
+  /* ---------- window shell ---------- */
+  .window {
+    width: 1180px;
+    border-radius: 12px;
+    background: #14161A;
+    border: 1px solid #2A2E34;
+    box-shadow: 0 1px 2px rgba(0,0,0,.5), 0 24px 64px rgba(0,0,0,.55);
+    overflow: hidden;
+  }
+  .titlebar {
+    height: 40px;
+    background: #101216;
+    border-bottom: 1px solid #2A2E34;
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    position: relative;
+  }
+  .lights { display: flex; gap: 8px; }
+  .light { width: 12px; height: 12px; border-radius: 50%; }
+  .light.r { background: #FF5F57; }
+  .light.y { background: #FEBC2E; }
+  .light.g { background: #28C840; }
+  .titlebar .title {
+    position: absolute; left: 0; right: 0;
+    text-align: center;
+    font-size: 13px; font-weight: 400;
+    color: #9AA0A9;
+    pointer-events: none;
+  }
+
+  /* ---------- app layout ---------- */
+  .app { width: 1180px; height: 820px; display: flex; flex-direction: column; }
+  .body-row { flex: 1; display: flex; min-height: 0; }
+
+  /* ---------- sidebar ---------- */
+  .sidebar {
+    width: 208px;
+    background: #17191E;
+    border-right: 1px solid #2A2E34;
+    display: flex; flex-direction: column;
+    padding: 18px 12px 14px;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 9px;
+    padding: 2px 8px 18px;
+  }
+  .brand svg { color: #34D399; }
+  .brand .name { font-size: 15px; font-weight: 600; letter-spacing: .1px; }
+  .nav { display: flex; flex-direction: column; gap: 4px; }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    height: 36px; padding: 0 10px;
+    border-radius: 10px;
+    border: 1px solid transparent;
+    font-size: 14px; font-weight: 400;
+    color: #C6CAD1;
+  }
+  .nav-item svg { flex: none; }
+  .nav-item.selected {
+    background: #1B3A2E;
+    border-color: rgba(52,211,153,.55);
+    color: #E8E4DA;
+    font-weight: 500;
+  }
+  .nav-item.selected svg { color: #34D399; }
+  .conn {
+    margin-top: auto;
+    background: #1C1F24;
+    border: 1px solid #2A2E34;
+    border-radius: 10px;
+    padding: 11px 12px;
+    display: flex; align-items: center; gap: 10px;
+    box-shadow: 0 1px 2px rgba(0,0,0,.35), 0 8px 24px rgba(0,0,0,.18);
+  }
+  .led {
+    width: 8px; height: 8px; border-radius: 50%; flex: none;
+    background: #34D399;
+    box-shadow: 0 0 8px rgba(52,211,153,.65);
+  }
+  .conn .t { font-size: 13px; font-weight: 500; color: #E8E4DA; }
+  .conn .s { font-size: 12px; color: #8E939D; margin-top: 2px; }
+
+  /* ---------- main ---------- */
+  .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .toolbar {
+    display: flex; align-items: center; gap: 12px;
+    padding: 18px 24px 14px;
+  }
+  .crumbs { display: flex; align-items: center; gap: 8px; margin-right: auto; }
+  .crumbs .crumb { font-size: 14px; color: #A6ABB5; }
+  .crumbs .crumb.current { color: #E8E4DA; font-weight: 500; }
+  .crumbs .sep { font-size: 13px; color: #8E939D; }
+  .pill {
+    height: 32px;
+    display: flex; align-items: center; gap: 7px;
+    padding: 0 12px;
+    background: #1C1F24;
+    border: 1px solid #2A2E34;
+    border-radius: 10px;
+    font-size: 13px; font-weight: 500; color: #E8E4DA;
+    box-shadow: 0 1px 2px rgba(0,0,0,.3);
+  }
+  .pill .lbl { font-size: 12px; font-weight: 400; color: #8E939D; }
+  .pill svg { color: #8E939D; }
+  .search {
+    height: 32px; width: 196px;
+    display: flex; align-items: center; gap: 8px;
+    padding: 0 12px;
+    background: #1C1F24;
+    border: 1px solid #2A2E34;
+    border-radius: 10px;
+    font-size: 13px; color: #8E939D;
+    box-shadow: 0 1px 2px rgba(0,0,0,.3);
+  }
+  .seg {
+    height: 32px; display: flex; align-items: center;
+    background: #1C1F24;
+    border: 1px solid #2A2E34;
+    border-radius: 10px;
+    padding: 3px;
+    box-shadow: 0 1px 2px rgba(0,0,0,.3);
+  }
+  .seg .opt {
+    width: 30px; height: 24px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 7px;
+    color: #8E939D;
+  }
+  .seg .opt.on { background: #2A2E34; color: #E8E4DA; }
+
+  /* ---------- grid ---------- */
+  .grid {
+    flex: 1;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    grid-auto-rows: max-content;
+    gap: 16px 14px;
+    align-content: start;
+    padding: 2px 24px 20px;
+    overflow: hidden;
+  }
+  .card {
+    position: relative;
+    background: #23262D;
+    border: 1px solid #2A2E34;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(0,0,0,.35), 0 8px 24px rgba(0,0,0,.18);
+  }
+  .thumb {
+    height: 150px;
+    background: #2B2F36;
+    display: flex; align-items: center; justify-content: center;
+    color: #C6CAD1;
+  }
+  .thumb img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    filter: saturate(.9);
+    display: block;
+  }
+  .meta { padding: 10px 12px 12px; }
+  .meta .fname {
+    font-size: 14px; font-weight: 500; color: #E8E4DA;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .meta .fsize { font-size: 12px; color: #8E939D; margin-top: 3px; }
+  .card.selected {
+    border-color: rgba(52,211,153,.9);
+    box-shadow: 0 0 0 1px rgba(52,211,153,.3), 0 0 18px rgba(52,211,153,.22), 0 8px 24px rgba(0,0,0,.2);
+  }
+  .card .progress {
+    position: absolute; left: 0; bottom: 0;
+    height: 4px; width: 78%;
+    background: #34D399;
+    box-shadow: 0 0 12px rgba(52,211,153,.35);
+  }
+
+  /* ---------- transfer rail ---------- */
+  .rail {
+    height: 56px; flex: none;
+    background: #101216;
+    border-top: 1px solid #2A2E34;
+    display: flex; align-items: center;
+    padding: 0 20px;
+    gap: 18px;
+  }
+  .rail .rail-title {
+    font-size: 12px; font-weight: 500;
+    color: #8E939D; letter-spacing: .4px;
+    flex: none;
+  }
+  .transfer {
+    display: flex; align-items: center; gap: 10px;
+    flex: 1; min-width: 0;
+  }
+  .transfer .t-icon { color: #34D399; flex: none; display: flex; }
+  .transfer .t-txt { min-width: 0; width: 190px; }
+  .transfer .t-name {
+    font-size: 13px; font-weight: 500; color: #E8E4DA;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .transfer .t-stat { font-size: 12px; color: #8E939D; margin-top: 2px; }
+  .track {
+    flex: 1; max-width: 220px; height: 5px;
+    background: #262B31; border-radius: 3px;
+    overflow: visible;
+  }
+  .track .fill {
+    height: 5px; border-radius: 3px;
+    background: #34D399;
+    box-shadow: 0 0 12px rgba(52,211,153,.35);
+  }
+  .pct { font-size: 12px; color: #E8E4DA; width: 34px; text-align: right; flex: none; }
+  .rail .divider { width: 1px; height: 24px; background: #2A2E34; flex: none; }
+</style>
+</head>
+<body>
+
+<div class="window">
+  <div class="titlebar">
+    <div class="lights"><div class="light r"></div><div class="light y"></div><div class="light g"></div></div>
+    <div class="title">Bucketeer</div>
+  </div>
+
+  <div class="app">
+    <div class="body-row">
+
+      <!-- sidebar -->
+      <aside class="sidebar">
+        <div class="brand">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 7h14l-1.6 8.2a2 2 0 0 1-2 1.8H6.6a2 2 0 0 1-2-1.8L3 7z"/>
+            <path d="M3 7l1.4-3.2A1.5 1.5 0 0 1 5.8 3h8.4a1.5 1.5 0 0 1 1.4 0.8L17 7"/>
+          </svg>
+          <span class="name">Bucketeer</span>
+        </div>
+        <nav class="nav">
+          <div class="nav-item">
+            <svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="3" width="6" height="6" rx="1.5"/><rect x="11" y="3" width="6" height="6" rx="1.5"/><rect x="3" y="11" width="6" height="6" rx="1.5"/><rect x="11" y="11" width="6" height="6" rx="1.5"/></svg>
+            Dashboard
+          </div>
+          <div class="nav-item selected">
+            <svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6c0-1.1.9-2 2-2h3.2l2 2h6c1.1 0 2 .9 2 2v6.5c0 1.1-.9 2-2 2h-11.2c-1.1 0-2-.9-2-2V6z"/></svg>
+            All files
+          </div>
+          <div class="nav-item">
+            <svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="10" cy="10" r="7"/><path d="M10 6v4.2l2.8 1.6"/></svg>
+            Recent files
+          </div>
+          <div class="nav-item">
+            <svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="10" cy="10" r="3.2"/><path d="M10 2.8v2M10 15.2v2M2.8 10h2M15.2 10h2M4.9 4.9l1.4 1.4M13.7 13.7l1.4 1.4M15.1 4.9l-1.4 1.4M6.3 13.7l-1.4 1.4"/></svg>
+            Settings
+          </div>
+        </nav>
+        <div class="conn">
+          <div class="led"></div>
+          <div>
+            <div class="t">R2 主力</div>
+            <div class="s mono">media · 2.4 GB</div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- main -->
+      <main class="main">
+        <div class="toolbar">
+          <div class="crumbs">
+            <span class="crumb">media</span><span class="sep">/</span>
+            <span class="crumb">photos</span><span class="sep">/</span>
+            <span class="crumb current">2026-10</span>
+          </div>
+          <div class="search">
+            <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8.5" cy="8.5" r="4.8"/><path d="M12.2 12.2L16 16"/></svg>
+            Filter files
+          </div>
+          <div class="pill"><span class="lbl">Type</span>All
+            <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 8l4.5 4.5L14.5 8"/></svg>
+          </div>
+          <div class="pill"><span class="lbl">Sort</span>Date
+            <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 8l4.5 4.5L14.5 8"/></svg>
+          </div>
+          <div class="seg">
+            <div class="opt on">
+              <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="5.6" height="5.6" rx="1.4"/><rect x="11.4" y="3" width="5.6" height="5.6" rx="1.4"/><rect x="3" y="11.4" width="5.6" height="5.6" rx="1.4"/><rect x="11.4" y="11.4" width="5.6" height="5.6" rx="1.4"/></svg>
+            </div>
+            <div class="opt">
+              <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3.5 5h13M3.5 10h13M3.5 15h13"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid">
+          <!-- 1 -->
+          <div class="card">
+            <div class="thumb"><img src="seed-11.jpg" alt=""></div>
+            <div class="meta"><div class="fname">IMG_2417.jpg</div><div class="fsize mono">3.4 MB</div></div>
+          </div>
+          <!-- 2 -->
+          <div class="card">
+            <div class="thumb">
+              <svg width="34" height="34" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><rect x="2.5" y="4.5" width="15" height="11" rx="2"/><path d="M8.5 8l4 2.5-4 2.5V8z"/></svg>
+            </div>
+            <div class="meta"><div class="fname">sunrise-timelapse.mp4</div><div class="fsize mono">482 MB</div></div>
+          </div>
+          <!-- 3 -->
+          <div class="card">
+            <div class="thumb"><img src="seed-13.jpg" alt=""></div>
+            <div class="meta"><div class="fname">album-cover.png</div><div class="fsize mono">1.1 MB</div></div>
+          </div>
+          <!-- 4 -->
+          <div class="card">
+            <div class="thumb">
+              <svg width="34" height="34" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 2.5h6.5L15 6v10.5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-13a1 1 0 0 1 1-1h-1z" transform="translate(0.5 0)"/><path d="M11.5 2.5V6H15"/><path d="M7.5 11h5M7.5 14h3.5"/></svg>
+            </div>
+            <div class="meta"><div class="fname">field-notes.pdf</div><div class="fsize mono">82 KB</div></div>
+          </div>
+          <!-- 5 -->
+          <div class="card">
+            <div class="thumb">
+              <svg width="34" height="34" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><rect x="3.5" y="4.5" width="13" height="11.5" rx="1.5"/><path d="M3.5 8h13"/><path d="M8.5 11h3v3h-3z"/></svg>
+            </div>
+            <div class="meta"><div class="fname">backup-2026-10.zip</div><div class="fsize mono">1.9 GB</div></div>
+          </div>
+          <!-- 6 -->
+          <div class="card">
+            <div class="thumb">
+              <svg width="34" height="34" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 14.5V5.2l7-1.6v9.4"/><circle cx="6.2" cy="14.5" r="1.8"/><circle cx="13.2" cy="13" r="1.8"/></svg>
+            </div>
+            <div class="meta"><div class="fname">podcast-ep-42.m4a</div><div class="fsize mono">36 MB</div></div>
+          </div>
+          <!-- 7 -->
+          <div class="card">
+            <div class="thumb"><img src="seed-15.jpg" alt=""></div>
+            <div class="meta"><div class="fname">IMG_2418.jpg</div><div class="fsize mono">2.9 MB</div></div>
+          </div>
+          <!-- 8 -->
+          <div class="card">
+            <div class="thumb">
+              <svg width="34" height="34" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 6.5L4 10l3.5 3.5M12.5 6.5L16 10l-3.5 3.5"/></svg>
+            </div>
+            <div class="meta"><div class="fname">logo-dark.svg</div><div class="fsize mono">14 KB</div></div>
+          </div>
+          <!-- 9 -->
+          <div class="card">
+            <div class="thumb">
+              <svg width="34" height="34" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2.5h5.5L15 6v10.5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-13a1 1 0 0 1 1-1z"/><path d="M11.5 2.5V6H15"/><path d="M8 10.5h4.5M8 13.5h3"/></svg>
+            </div>
+            <div class="meta"><div class="fname">contract-v2.docx</div><div class="fsize mono">210 KB</div></div>
+          </div>
+          <!-- 10 -->
+          <div class="card">
+            <div class="thumb"><img src="seed-17.jpg" alt=""></div>
+            <div class="meta"><div class="fname">IMG_2419.jpg</div><div class="fsize mono">3.1 MB</div></div>
+          </div>
+          <!-- 11 -->
+          <div class="card">
+            <div class="thumb"><img src="seed-19.jpg" alt=""></div>
+            <div class="meta"><div class="fname">waveform.png</div><div class="fsize mono">640 KB</div></div>
+          </div>
+          <!-- 12 -->
+          <div class="card">
+            <div class="thumb">
+              <svg width="34" height="34" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2.5h8a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-13a1 1 0 0 1 1-1z"/><path d="M6.8 13.5V8.8l1.9 2.3 1.9-2.3v4.7"/><path d="M13.3 8.8v4.7M13.3 13.5l-1.4-1.4M13.3 13.5l1.4-1.4"/></svg>
+            </div>
+            <div class="meta"><div class="fname">readme.md</div><div class="fsize mono">4 KB</div></div>
+          </div>
+          <!-- 13 · selected + uploading -->
+          <div class="card selected">
+            <div class="thumb"><img src="seed-21.jpg" alt=""></div>
+            <div class="meta"><div class="fname">IMG_2420.jpg</div><div class="fsize mono">3.0 MB</div></div>
+            <div class="progress"></div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <!-- transfer rail -->
+    <div class="rail">
+      <span class="rail-title">Transfers</span>
+      <div class="transfer">
+        <span class="t-icon">
+          <svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13V3.5"/><path d="M6.2 7.3L10 3.5l3.8 3.8"/><path d="M3.5 13.5v1.5a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-1.5"/></svg>
+        </span>
+        <div class="t-txt">
+          <div class="t-name">IMG_2420.jpg</div>
+          <div class="t-stat mono">Uploading · 2.4 MB/s</div>
+        </div>
+        <div class="track"><div class="fill" style="width:78%"></div></div>
+        <span class="pct mono">78%</span>
+      </div>
+      <div class="divider"></div>
+      <div class="transfer">
+        <span class="t-icon">
+          <svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13V3.5"/><path d="M6.2 7.3L10 3.5l3.8 3.8"/><path d="M3.5 13.5v1.5a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-1.5"/></svg>
+        </span>
+        <div class="t-txt">
+          <div class="t-name">sunset-timelapse.mp4</div>
+          <div class="t-stat mono">Uploading · 1.7 MB/s</div>
+        </div>
+        <div class="track"><div class="fill" style="width:31%"></div></div>
+        <span class="pct mono">31%</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
