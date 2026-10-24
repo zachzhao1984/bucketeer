@@ -157,30 +157,13 @@ func (a *App) card(c *ui.Context, e store.Entry) {
 	})
 }
 
-// folderCardStyle picks how a folder draws in the grid; the variants
-// share one trick: the cell is first flooded with the canvas color, which
-// covers the chrome the grid paints for a chosen cell, and the style
-// draws on top of that clean slate.
-var folderCardStyle = "A"
-
-// folderCard draws a folder in the grid.
+// folderCard draws a folder in the grid: the file card's own anatomy —
+// a tall inset plate with a large line glyph, the name below — so the
+// two kinds share one shape and differ only in their mark. Chosen is the
+// file card's language too: an emerald wash and a hairline, with the
+// glyph turning emerald. The cell is flooded with the canvas color
+// first, covering the chrome the grid paints for a chosen cell.
 func (a *App) folderCard(c *ui.Context, e store.Entry) {
-	switch folderCardStyle {
-	case "A":
-		a.folderCardA(c, e)
-	case "C":
-		a.folderCardC(c, e)
-	case "D":
-		a.folderCardD(c, e)
-	default:
-		a.folderCardB(c, e)
-	}
-}
-
-// folderCardA keeps the file card's anatomy: a tall zone with a large
-// line glyph above a centered name, and the file card's own selection —
-// an emerald wash and a hairline — instead of a solid fill.
-func (a *App) folderCardA(c *ui.Context, e store.Entry) {
 	t := c.Theme()
 	ch := chromeOf(t)
 	chosen := a.sel.Has(e.Key)
@@ -224,143 +207,6 @@ func (a *App) folderCardA(c *ui.Context, e store.Entry) {
 		})
 		ui.Text(c, e.Name).FontSize(typeBody).FontWeight(weightMedium).
 			TextColor(t.Text).TextAlign(ui.Center).SingleLine().Ellipsis("…").FillWidth()
-	})
-}
-
-// folderCardB is the sidebar's folder row on a floating raft: a quiet
-// 64pt row centered in the cell, solid emerald with inverted text when
-// chosen — the sidebar's selection at grid scale, without owning the
-// whole cell.
-func (a *App) folderCardB(c *ui.Context, e store.Entry) {
-	t := c.Theme()
-	ch := chromeOf(t)
-	chosen := a.sel.Has(e.Key)
-
-	cell := ui.Column(c.Key(e.Key)).Fill().Justify(ui.Center).
-		Background(ui.Transparent).Border(0, ui.Transparent)
-	cell.Label(e.Name)
-	hovered := cell.Hovered()
-	cell.ContextMenu(func(m *ui.Menu) { a.entryMenu(m, e) })
-	cell.Draw(func(p *ui.Painter, r ui.Rect) {
-		p.Fill(r, ch.canvas, 10)
-	})
-	cell.DrawOver(func(p *ui.Painter, r ui.Rect) {
-		p.Stroke(r, ch.canvas, 10, 4)
-	})
-
-	cell.Children(func() {
-		row := ui.Row(c).FillWidth().Height(64).Padding(0, 15).Gap(12).
-			AlignItems(ui.Center).Radius(10).Cursor(ui.CursorPointer)
-		if chosen {
-			row.TextColor(ch.selectedOn)
-		} else {
-			row.TextColor(t.Text)
-		}
-		row.Draw(func(p *ui.Painter, r ui.Rect) {
-			switch {
-			case chosen:
-				p.Fill(r, ch.selected, 10)
-			case hovered:
-				p.Fill(r, ch.hover, 10)
-			}
-		})
-		row.Children(func() {
-			if chosen || hovered {
-				a.cellCheck(c, e)
-			}
-			slot := ui.Box(c).Width(24).Shrink(0).Center()
-			color := t.TextMuted
-			if chosen {
-				color = ch.selectedOn
-			}
-			slot.Children(func() {
-				ui.Icon(c, iconFolder).FontSize(22).TextColor(color)
-			})
-			ui.Text(c, e.Name).FontSize(typeHeadline).FontWeight(weightMedium).
-				Grow(1).SingleLine().Ellipsis("…")
-		})
-	})
-}
-
-// folderCardC is the outlined row: the whole cell is one quiet card with
-// the content on its left edge — no fills at all, a hairline that turns
-// emerald and gets a breath of wash when chosen.
-func (a *App) folderCardC(c *ui.Context, e store.Entry) {
-	t := c.Theme()
-	ch := chromeOf(t)
-	chosen := a.sel.Has(e.Key)
-
-	row := ui.Row(c.Key(e.Key)).Fill().Padding(0, 15).Gap(13).
-		AlignItems(ui.Center).Radius(10).Cursor(ui.CursorPointer)
-	row.Label(e.Name)
-	hovered := row.Hovered()
-	row.ContextMenu(func(m *ui.Menu) { a.entryMenu(m, e) })
-	if chosen {
-		row.TextColor(t.Text)
-	} else {
-		row.TextColor(t.Text)
-	}
-	row.Draw(func(p *ui.Painter, r ui.Rect) {
-		switch {
-		case chosen:
-			p.Fill(r, ch.selected.Alpha(0.10), 10)
-		case hovered:
-			p.Stroke(r, ch.hairline, 10, 1.5)
-		}
-	})
-	row.DrawOver(func(p *ui.Painter, r ui.Rect) {
-		p.Stroke(r, ch.canvas, 10, 4)
-		if chosen {
-			p.Stroke(r, ch.selected, 10, 1.5)
-		}
-	})
-	row.Children(func() {
-		if chosen || hovered {
-			a.cellCheck(c, e)
-		}
-		glyph := t.TextMuted
-		if chosen {
-			glyph = ch.accentOn
-		}
-		slot := ui.Box(c).Width(30).Shrink(0).Center()
-		slot.Children(func() {
-			ui.Icon(c, iconFolder).FontSize(28).TextColor(glyph)
-		})
-		ui.Text(c, e.Name).FontSize(typeHeadline).FontWeight(weightMedium).
-			Grow(1).SingleLine().Ellipsis("…")
-	})
-}
-
-// folderCardD goes with the grid's own grain: the chosen cell already
-// paints a pressed plate and a hairline, so the content simply answers —
-// the glyph and name turn emerald, the name leans forward. No fills of
-// its own, nothing to fight the cell chrome.
-func (a *App) folderCardD(c *ui.Context, e store.Entry) {
-	t := c.Theme()
-	ch := chromeOf(t)
-	chosen := a.sel.Has(e.Key)
-
-	row := ui.Row(c.Key(e.Key)).Fill().Padding(0, 15).Gap(13).
-		AlignItems(ui.Center).Cursor(ui.CursorPointer)
-	row.Label(e.Name)
-	hovered := row.Hovered()
-	row.ContextMenu(func(m *ui.Menu) { a.entryMenu(m, e) })
-
-	glyph, nameColor, weight := t.TextMuted, t.Text, weightMedium
-	if chosen {
-		glyph, nameColor, weight = ch.accentOn, ch.accentOn, weightSemi
-	}
-
-	row.Children(func() {
-		if chosen || hovered {
-			a.cellCheck(c, e)
-		}
-		slot := ui.Box(c).Width(28).Shrink(0).Center()
-		slot.Children(func() {
-			ui.Icon(c, iconFolder).FontSize(26).TextColor(glyph)
-		})
-		ui.Text(c, e.Name).FontSize(typeHeadline).FontWeight(weight).
-			TextColor(nameColor).Grow(1).SingleLine().Ellipsis("…")
 	})
 }
 
