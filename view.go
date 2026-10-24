@@ -237,8 +237,7 @@ func (a *App) connectionRow(c *ui.Context) {
 		}
 	}
 
-	row := ui.Row(c).
-		Key("connection").
+	row := ui.Row(c.Key("connection")).
 		FillWidth().
 		Height(46).
 		Padding(0, 8).
@@ -1065,7 +1064,7 @@ func skeletons(c *ui.Context) {
 
 	ui.Column(c).FillWidth().Padding(18).Gap(8).Children(func() {
 		for i := range 7 {
-			ui.Box(c).Key(i).Height(34).Radius(btnRadius).Background(ui.Transparent).
+			ui.Box(c.Key(i)).Height(34).Radius(btnRadius).Background(ui.Transparent).
 				Draw(func(p *ui.Painter, r ui.Rect) {
 					p.Fill(r, ch.inset, btnRadius)
 				})

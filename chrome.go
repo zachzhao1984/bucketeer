@@ -182,7 +182,7 @@ func ctlSearchField(c *ui.Context, key any, value *string, width float32, label 
 	ch := chromeOf(t)
 
 	var field ui.Element
-	row := ui.Row(c).Key(key).Width(width).Height(btnHeight).Shrink(0).
+	row := ui.Row(c.Key(key)).Width(width).Height(btnHeight).Shrink(0).
 		Radius(btnRadius).Padding(0, 9).Gap(7).AlignItems(ui.Center).
 		Background(ch.inset).Border(0, ui.Transparent)
 	row.Label(label)
@@ -247,7 +247,7 @@ func menuItem(c *ui.Context, label, glyph string, checked bool, detail string) b
 	t := c.Theme()
 	ch := chromeOf(t)
 
-	row := ui.Row(c).Key(label+detail).Padding(6, 8).Gap(8).AlignItems(ui.Center).
+	row := ui.Row(c.Key(label+detail)).Padding(6, 8).Gap(8).AlignItems(ui.Center).
 		Radius(6).Cursor(ui.CursorPointer).Focusable().TextColor(t.Text)
 	row.Label(label)
 
@@ -311,7 +311,7 @@ func navRow(c *ui.Context, id, label string, glyph *ui.SVG, chosen bool, extra f
 	t := c.Theme()
 	ch := chromeOf(t)
 
-	row := ui.ButtonBase(c).Key(id).Cursor(ui.CursorPointer).AlignItems(ui.Center).Justify(ui.Start).Gap(10).
+	row := ui.ButtonBase(c.Key(id)).Cursor(ui.CursorPointer).AlignItems(ui.Center).Justify(ui.Start).Gap(10).
 		FillWidth().Padding(0, 10).Radius(8).Shrink(0).Height(34)
 	row.Label(label)
 	if onChoose != nil {
@@ -374,7 +374,7 @@ func ctlCheckGlyph(c *ui.Context, key any, on bool, label string) ui.Element {
 	t := c.Theme()
 	ch := chromeOf(t)
 
-	btn := ui.ButtonBase(c).Key(key).Size(18, 18).Shrink(0).Center().Radius(5).
+	btn := ui.ButtonBase(c.Key(key)).Size(18, 18).Shrink(0).Center().Radius(5).
 		Cursor(ui.CursorPointer).Label(label)
 	hovered := btn.Hovered()
 	btn.Children(func() {

@@ -21,7 +21,7 @@ env:
   # The toolchain the project pins, so a release builds what the tests ran
   # against.
   GO_VERSION: "1.27.1"
-  MYGO_VERSION: "v0.5.5"
+  MYGO_VERSION: "v0.6.3"
 
 jobs:
   version:

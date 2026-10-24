@@ -102,8 +102,7 @@ func (a *App) card(c *ui.Context, e store.Entry) {
 	chosen := a.sel.Has(e.Key)
 	kind := kindOf(e.Key, e.Folder)
 
-	card := ui.Column(c).
-		Key(e.Key).
+	card := ui.Column(c.Key(e.Key)).
 		Fill().
 		Padding(6).
 		Gap(4).
@@ -252,7 +251,7 @@ func (a *App) rowActions(c *ui.Context, e store.Entry) {
 	ch := chromeOf(t)
 
 	open := a.rowMenuKey == e.Key && a.rowMenuOpen
-	btn := ui.ButtonBase(c).Key("actions:"+e.Key).Size(28, 28).Shrink(0).
+	btn := ui.ButtonBase(c.Key("actions:"+e.Key)).Size(28, 28).Shrink(0).
 		Radius(6).Center().Cursor(ui.CursorPointer).Label("Actions for " + e.Name)
 	hovered := btn.Hovered()
 	btn.Children(func() {
@@ -367,8 +366,7 @@ func (a *App) bucketRow(c *ui.Context, b store.Bucket) {
 	t := c.Theme()
 	ch := chromeOf(t)
 
-	row := ui.Row(c).
-		Key(b.Name).
+	row := ui.Row(c.Key(b.Name)).
 		FillWidth().
 		Height(52).
 		Padding(0, 10).

@@ -89,7 +89,7 @@ func (a *App) dashboardLoading(c *ui.Context) {
 	ch := chromeOf(c.Theme())
 	ui.Row(c).FillWidth().Gap(14).Children(func() {
 		for i := range 4 {
-			ui.Box(c).Key(i).Grow(1).Height(128).Radius(12).Background(ui.Transparent).
+			ui.Box(c.Key(i)).Grow(1).Height(128).Radius(12).Background(ui.Transparent).
 				Draw(func(p *ui.Painter, r ui.Rect) {
 					p.Fill(r, ch.inset, 12)
 				})
@@ -233,7 +233,7 @@ func (a *App) dashboardFolders(c *ui.Context, s *store.Stat) {
 				if a.foldersByCount {
 					share, value = float64(folder.Objects)/float64(largest), formatCount(int(folder.Objects))
 				}
-				row := ui.Row(c).Key(folder.Prefix).FillWidth().Height(34).Gap(10).
+				row := ui.Row(c.Key(folder.Prefix)).FillWidth().Height(34).Gap(10).
 					AlignItems(ui.Center).Cursor(ui.CursorPointer).Radius(7).
 					OnClick(func() {
 						a.setSection(sectionFiles)
@@ -289,7 +289,7 @@ func (a *App) dashboardKinds(c *ui.Context, s *store.Stat) {
 			ui.Column(c).Grow(1).Gap(10).Children(func() {
 				for _, k := range s.ByKind {
 					kind := k
-					ui.Row(c).Key(kind.Kind).FillWidth().Gap(10).AlignItems(ui.Center).Children(func() {
+					ui.Row(c.Key(kind.Kind)).FillWidth().Gap(10).AlignItems(ui.Center).Children(func() {
 						led(c, kindTint(t, fileKind(kind.Kind)), 8)
 						ui.Text(c, kindName(kind.Kind)).
 							Width(80).
@@ -410,7 +410,7 @@ func (a *App) settingsSidebar(c *ui.Context) {
 		for _, p := range pages {
 			entry := p
 			chosen := a.settingsPage == entry.page
-			row := ui.ButtonBase(c).Key("page:"+entry.label).
+			row := ui.ButtonBase(c.Key("page:"+entry.label)).
 				FillWidth().Height(34).Padding(0, 10).Gap(9).Radius(8).
 				AlignItems(ui.Center).Justify(ui.Start).Cursor(ui.CursorPointer).
 				TextColor(t.Text).OnClick(func() {
@@ -824,7 +824,7 @@ func (a *App) transferRow(c *ui.Context, x store.Transfer) {
 		glyph, tint = iconUpload, t.Success
 	}
 
-	ui.Row(c).Key(x.ID).FillWidth().Padding(6, 6).Gap(9).AlignItems(ui.Center).
+	ui.Row(c.Key(x.ID)).FillWidth().Padding(6, 6).Gap(9).AlignItems(ui.Center).
 		Radius(7).Children(func() {
 		ui.Icon(c, glyph).FontSize(14).TextColor(tint).Shrink(0)
 

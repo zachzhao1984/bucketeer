@@ -1097,8 +1097,7 @@ func (a *App) recentRow(c *ui.Context, r recentEntry) {
 	ch := chromeOf(t)
 	kind := kindOf(r.Key, false)
 
-	row := ui.Row(c).
-		Key(r.Bucket+"/"+r.Key).
+	row := ui.Row(c.Key(r.Bucket+"/"+r.Key)).
 		FillWidth().
 		Height(46).
 		Padding(0, 10).

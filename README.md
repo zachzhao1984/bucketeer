@@ -53,10 +53,10 @@ go run .
 
 # Package the app for this platform: a .app and a .dmg on macOS, an .exe and
 # an NSIS installer on Windows
-go run github.com/egoist/mygo/cmd/mygo@v0.5.5 build
+go run github.com/egoist/mygo/cmd/mygo@v0.6.3 build
 
 # Both macOS architectures in one bundle
-go run github.com/egoist/mygo/cmd/mygo@v0.5.5 build -platform darwin/universal
+go run github.com/egoist/mygo/cmd/mygo@v0.6.3 build -platform darwin/universal
 ```
 
 ## Releasing

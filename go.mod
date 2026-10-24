@@ -3,7 +3,7 @@ module bucketeer
 go 1.27.1
 
 require (
-	github.com/egoist/mygo v0.5.5
+	github.com/egoist/mygo v0.6.3
 	github.com/minio/minio-go/v7 v7.4.1
 )
 
