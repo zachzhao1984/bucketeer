@@ -135,7 +135,7 @@ func (a *App) sidebar(c *ui.Context) {
 	if compactWindow(c) {
 		width = 208
 	}
-	pane := ui.Column(c).Width(width).FillHeight().Padding(0, 0, 0, 0).Background(ui.Transparent)
+	pane := ui.Column(c).Width(width).FillHeight().Padding(0, 0, 12, 0).Background(ui.Transparent)
 	pane = paintMaterial(c, pane)
 
 	pane.Children(func() {
@@ -239,11 +239,11 @@ func (a *App) connectionRow(c *ui.Context) {
 
 	row := ui.Row(c.Key("connection")).
 		FillWidth().
-		Height(46).
-		Padding(0, 8).
-		Gap(9).
+		Height(56).
+		Padding(0, 10).
+		Gap(11).
 		AlignItems(ui.Center).
-		Radius(9).
+		Radius(10).
 		Focusable().
 		Cursor(ui.CursorPointer).
 		TextColor(t.Text).
@@ -254,32 +254,32 @@ func (a *App) connectionRow(c *ui.Context) {
 	row = row.Background(ui.Transparent).Border(0, ui.Transparent).
 		Draw(func(p *ui.Painter, r ui.Rect) {
 			if hovered || a.chipOpen {
-				p.Fill(r, ch.hover, 9)
+				p.Fill(r, ch.hover, 10)
 			}
 		})
 
 	row.Children(func() {
 		if connected && a.session.Profile != nil {
-			monogram(c, a.session.Profile.Name, 28)
+			monogram(c, a.session.Profile.Name, 36)
 		} else {
-			face := ui.Box(c).Size(28, 28).Radius(8).Center().Shrink(0).
+			face := ui.Box(c).Size(36, 36).Radius(10).Center().Shrink(0).
 				Background(ui.Transparent).Border(1, t.Border)
 			face.Children(func() {
-				ui.Icon(c, iconCloud).FontSize(14).TextColor(t.TextMuted)
+				ui.Icon(c, iconCloud).FontSize(18).TextColor(t.TextMuted)
 			})
 		}
 
-		ui.Column(c).Grow(1).Gap(1).Children(func() {
-			ui.Text(c, label).FontSize(typeBody).FontWeight(weightMedium).SingleLine().Ellipsis("…")
-			ui.Row(c).Gap(4).AlignItems(ui.Center).Children(func() {
+		ui.Column(c).Grow(1).Gap(2).Children(func() {
+			ui.Text(c, label).FontSize(typeNav).FontWeight(weightMedium).SingleLine().Ellipsis("…")
+			ui.Row(c).Gap(5).AlignItems(ui.Center).Children(func() {
 				if connected {
-					led(c, t.Success, 5)
+					led(c, t.Success, 6)
 				}
-				ui.Text(c, detail).FontSize(typeCaption).TextColor(t.TextMuted).SingleLine().Ellipsis("…")
+				ui.Text(c, detail).FontSize(typeSmall).TextColor(t.TextMuted).SingleLine().Ellipsis("…")
 			})
 		})
 
-		ui.Icon(c, iconChevronUp).FontSize(12).TextColor(t.TextMuted).Shrink(0)
+		ui.Icon(c, iconChevronUp).FontSize(14).TextColor(t.TextMuted).Shrink(0)
 	})
 
 	ui.Popover(c, row, &a.chipOpen, func() {

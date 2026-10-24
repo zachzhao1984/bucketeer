@@ -321,8 +321,8 @@ func navRow(c *ui.Context, id, label string, glyph *ui.SVG, chosen bool, extra f
 	t := c.Theme()
 	ch := chromeOf(t)
 
-	row := ui.ButtonBase(c.Key(id)).Cursor(ui.CursorPointer).AlignItems(ui.Center).Justify(ui.Start).Gap(10).
-		FillWidth().Padding(0, 10).Radius(8).Shrink(0).Height(34)
+	row := ui.ButtonBase(c.Key(id)).Cursor(ui.CursorPointer).AlignItems(ui.Center).Justify(ui.Start).Gap(11).
+		FillWidth().Padding(0, 11).Radius(9).Shrink(0).Height(38)
 	row.Label(label)
 	if onChoose != nil {
 		row.OnClick(onChoose)
@@ -341,12 +341,12 @@ func navRow(c *ui.Context, id, label string, glyph *ui.SVG, chosen bool, extra f
 			}
 			// One slot of the same width for every glyph keeps the labels of a
 			// list on a single left edge.
-			slot := ui.Box(c).Width(19).Shrink(0).Center()
+			slot := ui.Box(c).Width(22).Shrink(0).Center()
 			slot.Children(func() {
-				ui.Icon(c, glyph).FontSize(16).TextColor(color)
+				ui.Icon(c, glyph).FontSize(19).TextColor(color)
 			})
 		}
-		ui.Text(c, label).FontSize(typeBody).FontWeight(weightMedium).Grow(1).SingleLine().Ellipsis("…")
+		ui.Text(c, label).FontSize(typeNav).FontWeight(weightMedium).Grow(1).SingleLine().Ellipsis("…")
 		if extra != nil {
 			extra()
 		}
@@ -356,9 +356,9 @@ func navRow(c *ui.Context, id, label string, glyph *ui.SVG, chosen bool, extra f
 		Draw(func(p *ui.Painter, r ui.Rect) {
 			switch {
 			case chosen:
-				p.Fill(r, ch.selected, 8)
+				p.Fill(r, ch.selected, 9)
 			case hovered:
-				p.Fill(r, ch.hover, 8)
+				p.Fill(r, ch.hover, 9)
 			}
 		})
 }

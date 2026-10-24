@@ -190,6 +190,7 @@ const (
 	typeCaption  = 11.5 // counts, hints, column headings
 	typeSmall    = 12.0 // the second line of a row
 	typeBody     = 13.0 // everything a person reads
+	typeNav      = 14.0 // the sidebar's rows
 	typeHeadline = 15.0 // dialog titles, section headings
 	typeTitle    = 20.0 // the place being browsed
 	typeDisplay  = 26.0 // a figure on the dashboard
