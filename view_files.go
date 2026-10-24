@@ -97,6 +97,10 @@ func (a *App) gridView(c *ui.Context, items []store.Entry) {
 
 // card is one thing in the bucket: its picture, its name, and what it is.
 func (a *App) card(c *ui.Context, e store.Entry) {
+	if e.Folder {
+		a.folderCard(c, e)
+		return
+	}
 	t := c.Theme()
 	ch := chromeOf(t)
 	chosen := a.sel.Has(e.Key)
@@ -150,6 +154,51 @@ func (a *App) card(c *ui.Context, e store.Entry) {
 			Ellipsis("…").
 			FillWidth().
 			Label(e.Name)
+	})
+}
+
+// folderCard is a folder in the grid: the sidebar's folder row, grown up —
+// the same line glyph, the same emerald fill when chosen, the same hover.
+// It fills the whole grid cell, covering the cell chrome the grid paints
+// for a chosen item, so the emerald row is the whole story.
+func (a *App) folderCard(c *ui.Context, e store.Entry) {
+	t := c.Theme()
+	ch := chromeOf(t)
+	chosen := a.sel.Has(e.Key)
+
+	row := ui.Row(c.Key(e.Key)).Fill().Padding(0, 14).Gap(12).
+		AlignItems(ui.Center).Radius(10).Cursor(ui.CursorPointer)
+	row.Label(e.Name)
+	hovered := row.Hovered()
+	row.ContextMenu(func(m *ui.Menu) { a.entryMenu(m, e) })
+	if chosen {
+		row.TextColor(ch.selectedOn)
+	} else {
+		row.TextColor(t.Text)
+	}
+	row.Draw(func(p *ui.Painter, r ui.Rect) {
+		switch {
+		case chosen:
+			p.Fill(r, ch.selected, 10)
+		case hovered:
+			p.Fill(r, ch.hover, 10)
+		}
+	})
+	row.Children(func() {
+		if chosen || hovered {
+			a.cellCheck(c, e)
+		}
+
+		slot := ui.Box(c).Width(24).Shrink(0).Center()
+		color := t.TextMuted
+		if chosen {
+			color = ch.selectedOn
+		}
+		slot.Children(func() {
+			ui.Icon(c, iconFolder).FontSize(22).TextColor(color)
+		})
+		ui.Text(c, e.Name).FontSize(typeHeadline).FontWeight(weightMedium).
+			Grow(1).SingleLine().Ellipsis("…")
 	})
 }
 

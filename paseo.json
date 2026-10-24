@@ -1,0 +1,7 @@
+{
+  "scripts": {
+    "Dev": {
+      "command": "mygo dev"
+    }
+  }
+}
