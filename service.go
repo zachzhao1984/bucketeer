@@ -25,6 +25,9 @@ type Service struct {
 	mu       sync.Mutex
 	profiles *store.ProfileStore
 	manager  *store.Manager
+	// listFunc, when set, stands in for the session's listing calls, so
+	// tests can stage responses in order.
+	listFunc func(ctx context.Context, bucket, prefix string) (store.Listing, error)
 	// secrets is the credential store, held so the app's own tokens (such
 	// as the upload service's) live beside the access keys.
 	secrets       store.SecretStore
@@ -637,6 +640,9 @@ func (s *Service) DeleteBucket(ctx context.Context, name string) error {
 
 // ListObjects returns the contents of a prefix, one level deep.
 func (s *Service) ListObjects(ctx context.Context, bucket, prefix string) (store.Listing, error) {
+	if s.listFunc != nil {
+		return s.listFunc(ctx, bucket, prefix)
+	}
 	session, err := s.currentSession()
 	if err != nil {
 		return store.Listing{}, err

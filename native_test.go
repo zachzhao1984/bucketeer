@@ -3,11 +3,13 @@ package main
 import (
 	"bucketeer/internal/cli"
 	"bucketeer/internal/store"
+	"context"
 	"github.com/egoist/mygo/ui"
 	"image/png"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -847,5 +849,74 @@ func TestConfirmCancelCancels(t *testing.T) {
 	}
 	if !fired {
 		t.Fatal("Delete did not run the action")
+	}
+}
+
+// TestRootFoldersLeaveTheListingTokenAlone is the regression test for the
+// startup loading that never ended: openBucket starts the folders fetch
+// right after the listing's, and if the two share one request token the
+// listing's response lands stale and is dropped. The folders fetch now
+// carries its own token, so taking it leaves the shared sequence alone.
+func TestRootFoldersLeaveTheListingTokenAlone(t *testing.T) {
+	a := nativeTestApp(t)
+	p := store.Profile{ID: "demo", Name: "Acme", Endpoint: "https://s3.example.com", Bucket: "magpie"}
+	a.svc.session = &store.Session{Profile: p}
+	stop := make(chan struct{})
+	a.svc.listFunc = func(ctx context.Context, bucket, prefix string) (store.Listing, error) {
+		<-stop // parked: the token is taken, the response never lands
+		return store.Listing{}, context.Canceled
+	}
+	t.Cleanup(func() { close(stop) })
+
+	a.bucket = "media"
+	before := a.seq
+	a.loadRootFolders()
+	if a.seq != before {
+		t.Fatalf("the folders fetch advanced the shared request token: %d -> %d", before, a.seq)
+	}
+}
+
+// TestStartupListingApplies checks the startup flow end to end: the
+// listing requested by openBucket applies even though the folders fetch
+// runs beside it, and the folders arrive on their own token.
+func TestStartupListingApplies(t *testing.T) {
+	a := nativeTestApp(t)
+	p := store.Profile{ID: "demo", Name: "Acme", Endpoint: "https://s3.example.com", Bucket: "magpie"}
+	a.svc.session = &store.Session{Profile: p}
+	a.bucket = "media"
+
+	// The two fetches run beside each other, so the responses are staged
+	// behind two gates and arrive in either order; both carry a folder and
+	// a file, so the final state proves neither result was dropped.
+	var calls atomic.Int32
+	gates := [2]chan store.Listing{make(chan store.Listing), make(chan store.Listing)}
+	// Two folders: files would pull thumbnails, which need a real session.
+	staged := store.Listing{Items: []store.Entry{
+		{Key: "photos/", Name: "photos", Folder: true},
+		{Key: "video/", Name: "video", Folder: true},
+	}}
+	a.svc.listFunc = func(ctx context.Context, bucket, prefix string) (store.Listing, error) {
+		n := calls.Add(1)
+		return <-gates[n-1], nil
+	}
+
+	a.openBucket("media")
+	gates[0] <- staged
+	gates[1] <- staged
+	waitFor(t, func() bool {
+		return !a.loading && len(a.listing.Items) == 2 && len(a.rootFolders) == 2
+	})
+}
+
+// waitFor runs fn until it holds or a second passes, pumping frames so
+// the app's own updates run.
+func waitFor(t *testing.T, fn func() bool) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for !fn() {
+		if time.Now().After(deadline) {
+			t.Fatal("timed out waiting for the app to settle")
+		}
+		time.Sleep(2 * time.Millisecond)
 	}
 }

@@ -119,6 +119,7 @@ type App struct {
 	// Folders list; the right side moves through them.
 	rootFolders        []store.Entry
 	rootFoldersLoading bool
+	rootFoldersSeq     int
 	// picgoPage is the Image hosting page's state, and picgoProfileOpen
 	// its connection menu.
 	picgoPage        picgoPageState
@@ -320,7 +321,16 @@ func (a *App) close() {
 // update runs fn on the main thread and redraws, from any goroutine. It is
 // how background work publishes its result.
 func (a *App) update(fn func()) {
-	if a.ctx.Err() != nil || a.win == nil || a.win.IsDestroyed() {
+	if a.ctx.Err() != nil {
+		return
+	}
+	if a.win == nil {
+		// No window yet: startup only, and tests. There is no main loop
+		// to post to, so the callback runs where it is.
+		fn()
+		return
+	}
+	if a.win.IsDestroyed() {
 		return
 	}
 	a.win.Update(func() {
@@ -399,13 +409,17 @@ func (a *App) loadRootFolders() {
 		a.rootFolders = nil
 		return
 	}
-	token := a.next()
+	// Its own sequence: openBucket starts this fetch right after the
+	// listing's, and a shared token would mark the listing stale by the
+	// time its response lands — the loading that never ended.
+	a.rootFoldersSeq++
+	token := a.rootFoldersSeq
 	bucket := a.bucket
 	a.rootFoldersLoading = true
 	go func() {
 		listing, err := a.svc.ListObjects(a.ctx, bucket, "")
 		a.update(func() {
-			if !a.current(token) || bucket != a.bucket {
+			if token != a.rootFoldersSeq || bucket != a.bucket {
 				return
 			}
 			a.rootFoldersLoading = false
