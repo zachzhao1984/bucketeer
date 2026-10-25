@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.1.1
 
 - Connections show each service's own mark — Cloudflare, AWS S3, Backblaze,
   Wasabi, MinIO, Alibaba Cloud, Tencent Cloud, DigitalOcean Spaces — drawn
