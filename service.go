@@ -99,11 +99,19 @@ func newService() (*Service, error) {
 	if err != nil {
 		return nil, fmt.Errorf("find the app's data directory: %w", err)
 	}
+	return newServiceIn(dataDir)
+}
+
+// newServiceIn builds the service living in dataDir: file credentials,
+// the one-time keychain import, and the shipped connection. The window
+// and the command line both end here.
+func newServiceIn(dataDir string) (*Service, error) {
 	secrets := newFileSecrets(dataDir)
 	svc, err := newServiceAt(dataDir, secrets)
 	if err != nil {
 		return nil, err
 	}
+	svc.migrateKeychain()
 	// Preload the Cloudflare R2 connection the app ships with (r2.json),
 	// so the app starts with a connection ready to use.
 	svc.seedR2Connection()
@@ -140,15 +148,23 @@ func (s *Service) migrateKeychain() {
 			keys = append(keys, p.SecretKey())
 		}
 	}
+	importKeychainSecrets(s.secrets, keys...)
+}
+
+// importKeychainSecrets moves the named keys from the keychain into the
+// file store: one last read per key that is there, then the keychain
+// entries go. A key already in the file is left alone; a key the user
+// declines to hand over stays for the next attempt.
+func importKeychainSecrets(file store.SecretStore, keys ...string) {
 	for _, key := range keys {
-		if _, err := s.secrets.Get(key); err == nil {
+		if _, err := file.Get(key); err == nil {
 			continue // already in the file
 		}
 		value, err := legacySecrets.Get(key)
 		if err != nil {
 			continue // not there, or the user said no this time
 		}
-		if err := s.secrets.Set(key, value); err != nil {
+		if err := file.Set(key, value); err != nil {
 			continue // retry next launch rather than drop the key
 		}
 		_ = legacySecrets.Delete(key)

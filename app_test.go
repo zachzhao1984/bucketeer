@@ -676,3 +676,48 @@ func TestKeychainImport(t *testing.T) {
 		}
 	}
 }
+
+// TestStartupImportsKeychain checks the wiring itself: a service built the
+// way the window builds it imports the keychain's credentials before
+// anything reads them, so the auto-reconnect finds its access key.
+func TestStartupImportsKeychain(t *testing.T) {
+	old := legacySecrets
+	t.Cleanup(func() { legacySecrets = old })
+	keychain := &memSecrets{}
+	legacySecrets = keychain
+
+	dir := t.TempDir()
+	// An old build's layout: the connection on file, its access key only
+	// in the keychain.
+	seed := store.NewProfileStore(filepath.Join(dir, "connections.json"), keychain)
+	p, err := seed.Create(store.Input{
+		Name: "Acme", Provider: "other", Endpoint: "https://s3.example.com",
+		AccessKeyID: "AKIA", SecretKey: "wNHc1td",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := keychain.Set("picgo-http-token", []byte("tok-9")); err != nil {
+		t.Fatal(err)
+	}
+
+	svc, err := newServiceIn(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer svc.Close()
+
+	if _, err := svc.secrets.Get(p.SecretKey()); err != nil {
+		t.Fatalf("the connection's access key was not imported: %v", err)
+	}
+	if got, err := svc.secrets.Get("picgo-http-token"); err != nil || string(got) != "tok-9" {
+		t.Fatalf("picgo token = %q, %v", got, err)
+	}
+	if _, err := keychain.Get(p.SecretKey()); err == nil {
+		t.Fatal("the access key is still in the keychain")
+	}
+	// The reconnect that failed in the field now works.
+	if _, err := svc.profiles.Secret(p.ID); err != nil {
+		t.Fatalf("Secret after import: %v", err)
+	}
+}
