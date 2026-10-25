@@ -331,9 +331,10 @@ jobs:
       - name: Extract the archive, then run its command line
         run: |
           set -euo pipefail
-          tarball="$(find artifacts -name '*.tar.gz' -print -quit)"
+          # This runner is amd64; the arm64 archive cannot run here.
+          tarball="$(find artifacts -name '*linux-amd64.tar.gz' -print -quit)"
           if [ -z "$tarball" ]; then
-            echo "no Linux archive was built" >&2
+            echo "no amd64 Linux archive was built" >&2
             ls -R artifacts >&2
             exit 1
           fi
