@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Connections show each service's own mark — Cloudflare, AWS S3, Backblaze,
+  Wasabi, MinIO, Alibaba Cloud, Tencent Cloud, DigitalOcean Spaces — drawn
+  from theSVG (https://thesvg.org); an unknown service keeps the drive
+  plate with its initials.
+
 ## 1.1.0
 
 - **Linux builds**: a `tar.gz` with `install.sh` (installs to `~/.local`,

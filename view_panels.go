@@ -597,11 +597,7 @@ func (a *App) connectionCard(c *ui.Context, profile store.Profile) {
 	box := card(c).FillWidth().Padding(12, 14).Gap(0)
 	box.Children(func() {
 		ui.Row(c).FillWidth().Gap(11).AlignItems(ui.Center).Children(func() {
-			if active {
-				drivePlate(c, profile.Name, 34)
-			} else {
-				monogram(c, profile.Name, 34)
-			}
+			connectionMark(c, profile, 34)
 
 			ui.Column(c).Grow(1).Gap(2).Children(func() {
 				ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {

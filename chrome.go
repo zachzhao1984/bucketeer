@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bucketeer/internal/store"
 	"strings"
 	"time"
 
@@ -554,6 +555,27 @@ func iconPlate(c *ui.Context, glyph *ui.SVG, tint ui.Color, size float32) ui.Ele
 }
 
 // monogram is a round tag of a name's initials.
+// connectionMark draws a connection's mark: the service's own logo on a
+// quiet plate when the app knows the service, the drive plate with
+// initials otherwise.
+func connectionMark(c *ui.Context, profile store.Profile, size float32) ui.Element {
+	svg := brandIcon(profile.Provider)
+	if svg == nil {
+		return drivePlate(c, profile.Name, size)
+	}
+	tint := brandTint(profile.Provider)
+
+	plate := ui.Box(c).Size(size, size).Radius(size * 0.30).Shrink(0).Center().Clip()
+	plate.Draw(func(p *ui.Painter, r ui.Rect) {
+		p.Fill(r, tint.Alpha(0.14), size*0.30)
+		p.Stroke(r, tint.Alpha(0.45), size*0.30, 1)
+	})
+	plate.Children(func() {
+		ui.Icon(c, svg).FontSize(size * 0.60)
+	})
+	return plate
+}
+
 // drivePlate is the connection's mark: a small drive with a warm
 // anodized face, a highlight along its top edge, and four screws. It is
 // the one deliberately physical thing in the window — a bucket is a

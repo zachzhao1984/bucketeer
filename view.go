@@ -281,7 +281,7 @@ func (a *App) connectionRow(c *ui.Context) {
 
 	row.Children(func() {
 		if connected && a.session.Profile != nil {
-			drivePlate(c, a.session.Profile.Name, 36)
+			connectionMark(c, *a.session.Profile, 36)
 		} else {
 			face := ui.Box(c).Size(36, 36).Radius(10).Center().Shrink(0).
 				Background(ui.Transparent).Border(1, t.Border)
