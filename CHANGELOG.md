@@ -1,13 +1,26 @@
 # Changelog
 
-## Unreleased
+## 1.1.0
 
+- **Linux builds**: a `tar.gz` with `install.sh` (installs to `~/.local`,
+  no root) and a Debian package, for amd64 and arm64.
 - Credentials moved out of the system keychain into `secrets.json` in the
   app's data folder (mode 0600). An ad-hoc signed build cannot make the
   keychain's per-item authorization stick, so every launch asked twice;
   the file asks nothing. Credentials an older build kept in the keychain
   are imported on first launch — one prompt per key that is there — and
   removed from it.
+- The sidebar's Folders list stays on the bucket's own folders while the
+  right side moves through them; the root folder that holds the browsed
+  prefix stays highlighted.
+- Folders in the grid draw as the file card's anatomy — a plate with a
+  large line glyph and the name below — selected the same way files are.
+- The Midnight appearance in both light and dark, with the transfers
+  light-rail along the window's bottom edge.
+- The app menu carries Settings… (⌘,), the appearance choice is
+  Auto/Light/Dark, ⌘F focuses the filter, Space previews.
+- Fixed: the delete confirmation's Cancel did nothing; the startup
+  listing could hang on the loading skeletons forever.
 
 ## 0.1.0
 

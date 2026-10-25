@@ -189,6 +189,37 @@ jobs:
           path: |
             build/windows-*/**/*Setup*.exe
 
+  linux:
+    needs: [version, test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      # MyGo needs no cgo, so both architectures build here. The tar.gz mygo
+      # makes carries the app and an install.sh that installs to ~/.local
+      # without root; the Debian package is for apt-based systems.
+      - name: Build the app for amd64 and arm64
+        run: |
+          go run "github.com/egoist/mygo/cmd/mygo@${MYGO_VERSION}" build \
+            -platform linux/amd64,linux/arm64
+
+      - name: List what was built
+        run: find build -maxdepth 2 -type f | sort
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          if-no-files-found: error
+          # The packages only: the loose executable, desktop entry and icons
+          # the tar.gz already holds are not downloads of their own.
+          path: |
+            build/linux-*/*.tar.gz
+            build/linux-*/*.deb
+
   # The smoke test runs each installer's payload the way a user's machine
   # would: the macOS app through `open`, the Windows executable directly with
   # its command line, which must reach storage rather than open a window.
@@ -288,8 +319,46 @@ jobs:
             Start-Process -FilePath $uninstall -ArgumentList "/S" -Wait
           }
 
+  smoke-linux:
+    needs: linux
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux
+          path: artifacts
+
+      - name: Extract the archive, then run its command line
+        run: |
+          set -euo pipefail
+          tarball="$(find artifacts -name '*.tar.gz' -print -quit)"
+          if [ -z "$tarball" ]; then
+            echo "no Linux archive was built" >&2
+            ls -R artifacts >&2
+            exit 1
+          fi
+          dir="$RUNNER_TEMP/bucketeer"
+          mkdir -p "$dir"
+          tar -xzf "$tarball" -C "$dir"
+          test -x "$dir/bucketeer"
+
+          # A clean data directory, so this is a first-run check: a command
+          # with nothing configured must explain itself, not crash.
+          export BUCKETEER_DATA_DIR="$RUNNER_TEMP/fresh-data"
+          mkdir -p "$BUCKETEER_DATA_DIR"
+
+          "$dir/bucketeer" --help | grep -q "the Bucketeer command line"
+          if "$dir/bucketeer" profiles >"$RUNNER_TEMP/out" 2>&1; then
+            : # a saved connection is fine too; only a crash is not
+          fi
+          if grep -qi "panic" "$RUNNER_TEMP/out"; then
+            echo "the command line panicked with no configuration:" >&2
+            cat "$RUNNER_TEMP/out" >&2
+            exit 1
+          fi
+
   publish:
-    needs: [version, macos, windows, smoke-macos, smoke-windows]
+    needs: [version, macos, windows, linux, smoke-macos, smoke-windows, smoke-linux]
     # Only a tag publishes. A manual run stops after the smoke tests, with the
     # artifacts to download.
     if: github.ref_type == 'tag'
@@ -318,6 +387,17 @@ jobs:
           if [ -z "$setup" ]; then echo "no Windows installer" >&2; exit 1; fi
           cp "$setup" "dist/Bucketeer-$VERSION-windows-amd64.exe"
 
+          # The Linux packages carry their architecture in the path mygo
+          # built them into; the asset name says linux-<arch> either way.
+          for tar in artifacts/linux-*/*.tar.gz; do
+            arch="$(basename "$(dirname "$tar")" | sed 's/linux-//')"
+            cp "$tar" "dist/Bucketeer-$VERSION-linux-$arch.tar.gz"
+          done
+          for deb in artifacts/linux-*/*.deb; do
+            arch="$(basename "$(dirname "$deb")" | sed 's/linux-//')"
+            cp "$deb" "dist/Bucketeer-$VERSION-linux-$arch.deb"
+          done
+
           ls -lh dist
 
       - name: Write the release notes
@@ -341,6 +421,7 @@ jobs:
             echo
             echo "- **macOS** — \`Bucketeer-$version-macos-universal.dmg\` runs on Apple silicon and Intel Macs."
             echo "- **Windows** — \`Bucketeer-$version-windows-amd64.exe\` installs for the current user; no administrator prompt."
+            echo "- **Linux** — Bucketeer-$version-linux-<arch>.tar.gz unpacks to the app and an install.sh that installs to ~/.local without root; the .deb suits apt-based systems. The window needs WebKitGTK 4.1 on screen (most desktops have it)."
             echo
             echo "The app also carries the \`bkt\` command line and a skill for coding agents;"
             echo "install both from **Settings → Command line**."
