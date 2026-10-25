@@ -388,16 +388,17 @@ jobs:
           if [ -z "$setup" ]; then echo "no Windows installer" >&2; exit 1; fi
           cp "$setup" "dist/Bucketeer-$VERSION-windows-amd64.exe"
 
-          # The Linux packages carry their architecture in the path mygo
-          # built them into; the asset name says linux-<arch> either way.
-          for tar in artifacts/linux-*/*.tar.gz; do
-            arch="$(basename "$(dirname "$tar")" | sed 's/linux-//')"
+          # The Linux packages carry their architecture in the directory
+          # mygo built them into; the asset name says linux-<arch> either
+          # way. Found by name, not by where the download put them.
+          while IFS= read -r tar; do
+            arch="$(basename "$(dirname "$tar")" | sed 's/.*linux-//')"
             cp "$tar" "dist/Bucketeer-$VERSION-linux-$arch.tar.gz"
-          done
-          for deb in artifacts/linux-*/*.deb; do
-            arch="$(basename "$(dirname "$deb")" | sed 's/linux-//')"
+          done < <(find artifacts -name '*linux-*.tar.gz')
+          while IFS= read -r deb; do
+            arch="$(basename "$(dirname "$deb")" | sed 's/.*linux-//')"
             cp "$deb" "dist/Bucketeer-$VERSION-linux-$arch.deb"
-          done
+          done < <(find artifacts -name '*.deb')
 
           ls -lh dist
 
