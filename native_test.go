@@ -4,17 +4,27 @@ import (
 	"bucketeer/internal/cli"
 	"bucketeer/internal/store"
 	"context"
+	"github.com/egoist/mygo"
+	"github.com/egoist/mygo/plugins/updater/native"
 	"github.com/egoist/mygo/ui"
 	"image/png"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 )
 
+// useUpdater brings the updater plugin in once, the way main does, so the
+// pages that read its preferences do not panic in tests.
+var useUpdaterOnce sync.Once
+
+func useUpdater() { useUpdaterOnce.Do(func() { mygo.Use(native.Plugin) }) }
+
 func nativeTestApp(t *testing.T) *App {
+	useUpdater()
 	t.Helper()
 	a := newApp(newTestService(t))
 	t.Cleanup(a.close)

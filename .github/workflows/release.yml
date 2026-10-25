@@ -89,6 +89,11 @@ jobs:
           MACOS_NOTARY_APPLE_ID: ${{ secrets.MACOS_NOTARY_APPLE_ID }}
           MACOS_NOTARY_TEAM_ID: ${{ secrets.MACOS_NOTARY_TEAM_ID }}
           MACOS_NOTARY_PASSWORD: ${{ secrets.MACOS_NOTARY_PASSWORD }}
+          # Signs the update archives and the manifests. GH_TOKEN lets the
+          # build find the previous release, whose archives are the bases of
+          # the delta updates.
+          MYGO_UPDATER_PRIVATE_KEY: ${{ secrets.MYGO_UPDATER_PRIVATE_KEY }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
 
@@ -144,6 +149,8 @@ jobs:
           path: |
             build/darwin-*/*.dmg
             build/darwin-*/*.tar.gz
+            build/darwin-*/update-*.json
+            build/darwin-*/*.delta
 
   windows:
     needs: [version, test]
@@ -162,6 +169,10 @@ jobs:
           # password goes in the variable MyGo reads.
           WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
           MYGO_WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+          # Signs the update archives and the manifests; GH_TOKEN is for the
+          # delta updates against the previous release.
+          MYGO_UPDATER_PRIVATE_KEY: ${{ secrets.MYGO_UPDATER_PRIVATE_KEY }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           $ErrorActionPreference = "Stop"
           if ($env:WINDOWS_CERTIFICATE) {
@@ -203,6 +214,11 @@ jobs:
       # makes carries the app and an install.sh that installs to ~/.local
       # without root; the Debian package is for apt-based systems.
       - name: Build the app for amd64 and arm64
+        env:
+          # Signs the update archives and the manifests; GH_TOKEN is for the
+          # delta updates against the previous release.
+          MYGO_UPDATER_PRIVATE_KEY: ${{ secrets.MYGO_UPDATER_PRIVATE_KEY }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           go run "github.com/egoist/mygo/cmd/mygo@${MYGO_VERSION}" build \
             -platform linux/amd64,linux/arm64
@@ -219,6 +235,8 @@ jobs:
           path: |
             build/linux-*/*.tar.gz
             build/linux-*/*.deb
+            build/linux-*/update-*.json
+            build/linux-*/*.delta
 
   # The smoke test runs each installer's payload the way a user's machine
   # would: the macOS app through `open`, the Windows executable directly with
@@ -387,6 +405,13 @@ jobs:
           setup="$(find artifacts -name '*Setup*.exe' -print -quit)"
           if [ -z "$setup" ]; then echo "no Windows installer" >&2; exit 1; fi
           cp "$setup" "dist/Bucketeer-$VERSION-windows-amd64.exe"
+
+          # The update files keep the exact names the manifests reference:
+          # the archives, the deltas from earlier versions, and the
+          # manifests last of all (attached after the files they name).
+          find artifacts -name 'update-*.json' -exec cp {} dist/ \;
+          find artifacts -name '*.delta' -exec cp {} dist/ \;
+          find artifacts -name 'bucketeer-*.tar.gz' -exec cp {} dist/ \;
 
           # The Linux packages carry their architecture in the directory
           # mygo built them into; the asset name says linux-<arch> either

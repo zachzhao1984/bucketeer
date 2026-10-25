@@ -2,6 +2,9 @@ package main
 
 import (
 	"fmt"
+	"time"
+
+	"github.com/egoist/mygo/plugins/updater"
 
 	"github.com/egoist/mygo/ui"
 
@@ -630,6 +633,27 @@ func (a *App) connectionCard(c *ui.Context, profile store.Profile) {
 	})
 }
 
+// updatesRow is the software-update preferences: whether the app checks
+// by itself, when it last did, and a check on demand.
+func (a *App) updatesRow(c *ui.Context, t *ui.Theme) {
+	a.settingRow(c, "Software updates", "The app checks for a newer version once a day.", func() {
+		ui.Row(c).Gap(10).AlignItems(ui.Center).Children(func() {
+			if last := updater.LastCheck(); !last.IsZero() {
+				ui.Text(c, "Last checked "+formatRelative(last, time.Now())).FontSize(typeBody).
+					TextColor(t.TextMuted).Shrink(0)
+			}
+			if ctlButton(c, "Check now").Clicked() {
+				updater.CheckForUpdates()
+			}
+			on := updater.AutomaticChecks()
+			sw := ctlSwitch(c, "update-auto", &on, "Check automatically")
+			if sw.Changed() {
+				updater.SetAutomaticChecks(on)
+			}
+		})
+	})
+}
+
 // settingsAbout is what the app is, and where it keeps things.
 func (a *App) settingsAbout(c *ui.Context) {
 	t := c.Theme()
@@ -663,6 +687,8 @@ func (a *App) settingsAbout(c *ui.Context) {
 					}
 				})
 			})
+			settingRule(c)
+			a.updatesRow(c, t)
 			settingRule(c)
 			a.settingRow(c, "Data folder", a.info.DataDir, func() {
 				if ctlButton(c, "Show").Clicked() {

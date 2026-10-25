@@ -3,6 +3,8 @@ package main
 
 import (
 	"github.com/egoist/mygo"
+	"github.com/egoist/mygo/plugins/updater"
+	"github.com/egoist/mygo/plugins/updater/native"
 	"github.com/egoist/mygo/ui"
 	"log"
 	"os"
@@ -14,6 +16,10 @@ func main() {
 	if len(os.Args) > 1 {
 		os.Exit(runCLI(os.Args[1:]))
 	}
+
+	// The updater's window is native UI, like the app's own: it checks in
+	// the background, shows release notes and installs with a progress bar.
+	mygo.Use(native.Plugin)
 
 	service, err := newService()
 	if err != nil {
@@ -34,6 +40,7 @@ func main() {
 		mygo.App.SetMenu(mygo.NewMenu([]*mygo.MenuItem{
 			{Role: mygo.RoleAppMenu, Submenu: []*mygo.MenuItem{
 				{Role: mygo.RoleAbout},
+				updater.MenuItem(),
 				mygo.Separator(),
 				{Label: "Settings…", Accelerator: "CmdOrCtrl+,", Click: func(*mygo.MenuItem, *mygo.Window) {
 					win.Update(app.openSettings)

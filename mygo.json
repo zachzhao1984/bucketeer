@@ -7,5 +7,9 @@
   "out": "build",
   "macos": {
     "minimumSystemVersion": "12.0"
+  },
+  "updates": {
+    "publicKey": "qU2js9bn12Az4TrL4g33U46a6BVlIgaKOVoR8QwbD1U=",
+    "github": "zachzhao1984/bucketeer"
   }
 }
