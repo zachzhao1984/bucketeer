@@ -29,9 +29,10 @@ func runCLI(args []string) int {
 		Profiles: nil,
 	}
 	if dir, err := dataDirectory(); err == nil {
-		cfg.Profiles = store.NewProfileStore(filepath.Join(dir, "connections.json"), secretStore{})
+		secrets := newFileSecrets(dir)
+		cfg.Profiles = store.NewProfileStore(filepath.Join(dir, "connections.json"), secrets)
 	} else {
-		cfg.Profiles = store.NewProfileStore("", secretStore{})
+		cfg.Profiles = store.NewProfileStore("", newFileSecrets(dir))
 	}
 	return cli.Run(args, cfg)
 }

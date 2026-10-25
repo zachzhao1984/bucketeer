@@ -587,3 +587,92 @@ func TestSettingsMigrateAppearance(t *testing.T) {
 		t.Fatalf("a light file migrated to %q, want system", got)
 	}
 }
+
+// TestFileSecretsRoundTrip checks the file credential store: set, get,
+// delete, persistence across instances, and owner-only permissions.
+func TestFileSecretsRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	secrets := newFileSecrets(dir)
+
+	if _, err := secrets.Get("profile/x/secret"); !errors.Is(err, errSecretNotFound) {
+		t.Fatalf("a missing key returned %v, want not-found", err)
+	}
+	if err := secrets.Set("profile/x/secret", []byte("wNHc1td")); err != nil {
+		t.Fatal(err)
+	}
+	if err := secrets.Set("picgo-http-token", []byte("tok-9")); err != nil {
+		t.Fatal(err)
+	}
+
+	// A second store over the same directory sees what the first wrote.
+	again := newFileSecrets(dir)
+	if got, err := again.Get("profile/x/secret"); err != nil || string(got) != "wNHc1td" {
+		t.Fatalf("Get = %q, %v", got, err)
+	}
+
+	info, err := os.Stat(filepath.Join(dir, "secrets.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if perm := info.Mode().Perm(); perm != 0o600 {
+		t.Fatalf("secrets.json mode = %v, want 0600", perm)
+	}
+
+	if err := again.Delete("profile/x/secret"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := again.Get("profile/x/secret"); !errors.Is(err, errSecretNotFound) {
+		t.Fatalf("after Delete, Get returned %v", err)
+	}
+}
+
+// TestKeychainImport moves the credentials an older build kept in the
+// keychain into the file store and clears the keychain entries.
+func TestKeychainImport(t *testing.T) {
+	old := legacySecrets
+	t.Cleanup(func() { legacySecrets = old })
+	keychain := &memSecrets{values: map[string][]byte{
+		"profile/definitely-not-a-real-id/secret": []byte("stale"),
+		"picgo-http-token":                        []byte("tok-9"),
+	}}
+	legacySecrets = keychain
+
+	dir := t.TempDir()
+	svc, err := newServiceAt(dir, newFileSecrets(dir))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer svc.Close()
+	// The connection exists before the import: only live profiles' keys
+	// are imported, and the secret key carries this profile's id. An old
+	// build wrote this key to the keychain, not to the file, so the file
+	// copy is taken back out before the import runs.
+	p, err := svc.profiles.Create(store.Input{
+		Name: "Acme", Provider: "other", Endpoint: "https://s3.example.com",
+		AccessKeyID: "AKIA", SecretKey: "wNHc1td",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.secrets.Delete(p.SecretKey()); err != nil {
+		t.Fatal(err)
+	}
+	if err := keychain.Set(p.SecretKey(), []byte("wNHc1td")); err != nil {
+		t.Fatal(err)
+	}
+	svc.migrateKeychain()
+
+	// Both live keys are in the file and gone from the keychain; the
+	// keychain entry of a profile that no longer exists is left behind —
+	// deleting an unknown profile's key is not this store's business.
+	for _, key := range []string{p.SecretKey(), "picgo-http-token"} {
+		if got, err := svc.secrets.Get(key); err != nil {
+			t.Fatalf("%s did not import: %v", key, err)
+		} else if len(got) == 0 {
+			t.Fatalf("%s imported empty", key)
+		}
+		if _, err := keychain.Get(key); err == nil {
+			t.Fatalf("%s is still in the keychain", key)
+		}
+	}
+}

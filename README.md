@@ -128,14 +128,14 @@ the last week.
 
 ## Where credentials live
 
-Access keys go to the system credential store — the login Keychain on
-macOS, the Secret Service on Linux, the Credential Manager on Windows.
-`connections.json` holds only non-sensitive profile metadata, and the
-settings file holds preferences. Neither contains a secret access key, and
-the files are written with owner-only permissions.
-
-The app reports when a system has no credential store rather than silently
-falling back to a file.
+Access keys go to `secrets.json` in the app's data folder, written with
+owner-only permissions (0600) — a deliberate trade of the system
+keychain's protection for not being asked to authorize the keychain at
+every launch of an ad-hoc signed build. `connections.json` holds only
+non-sensitive profile metadata, and the settings file holds preferences;
+neither contains a secret access key. Credentials an older build kept in
+the system keychain are imported once, on first launch, and removed from
+it.
 
 ## The window's title bar
 

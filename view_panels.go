@@ -562,7 +562,7 @@ func (a *App) settingsConnections(c *ui.Context) {
 	t := c.Theme()
 
 	ui.Column(c).FillWidth().Gap(14).Children(func() {
-		settingsHeader(c, "Connections", "The storage accounts this app can browse, with their keys kept in the system credential store.")
+		settingsHeader(c, "Connections", "The storage accounts this app can browse, with their keys kept on this Mac.")
 
 		if len(a.connections) == 0 {
 			ui.Text(c, "No saved connections yet.").FontSize(typeBody).TextColor(t.TextMuted)
@@ -627,7 +627,7 @@ func (a *App) connectionCard(c *ui.Context, profile store.Profile) {
 			remove.Children(func() { ui.Icon(c, iconTrash).FontSize(14).TextColor(t.TextMuted) })
 			if remove.Clicked() {
 				a.ask("Remove “"+profile.Name+"”?",
-					"This deletes the saved connection and its credentials from the Keychain.",
+					"This deletes the saved connection and its access key from this Mac.",
 					"Remove", func() { a.removeConnection(profile) })
 			}
 		})
@@ -656,11 +656,11 @@ func (a *App) settingsAbout(c *ui.Context) {
 				ui.Text(c, a.info.Version+" · "+a.info.Platform).FontSize(typeBody).TextColor(t.TextMuted)
 			})
 			settingRule(c)
-			a.settingRow(c, "Credentials", "Access keys live in the system credential store.", func() {
+			a.settingRow(c, "Credentials", "Access keys live in the app's data folder.", func() {
 				ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
 					if a.info.SecretOK {
 						led(c, t.Success, 6)
-						ui.Text(c, "Keychain").FontSize(typeBody).TextColor(t.TextMuted)
+						ui.Text(c, "App data").FontSize(typeBody).TextColor(t.TextMuted)
 					} else {
 						led(c, t.Warning, 6)
 						ui.Text(c, "Unavailable").FontSize(typeBody).TextColor(t.Warning)

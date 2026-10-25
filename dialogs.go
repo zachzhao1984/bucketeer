@@ -478,7 +478,7 @@ func secretHint(form connForm) string {
 	if form.editing {
 		return "a new key replaces the saved one"
 	}
-	return "stored in your system keychain"
+	return "stored on this Mac"
 }
 
 /* -------------------------------------------------------------------------

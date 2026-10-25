@@ -99,7 +99,8 @@ func newService() (*Service, error) {
 	if err != nil {
 		return nil, fmt.Errorf("find the app's data directory: %w", err)
 	}
-	svc, err := newServiceAt(dataDir, secretStore{})
+	secrets := newFileSecrets(dataDir)
+	svc, err := newServiceAt(dataDir, secrets)
 	if err != nil {
 		return nil, err
 	}
@@ -127,6 +128,33 @@ func newServiceAt(dataDir string, secrets store.SecretStore) (*Service, error) {
 	return s, nil
 }
 
+// migrateKeychain moves the credentials an older build kept in the system
+// keychain into the file store: one last read per key that is there (the
+// only authorization prompt left), then the keychain entries go. A key the
+// user declines to hand over stays in the keychain and the import retries
+// next launch.
+func (s *Service) migrateKeychain() {
+	keys := []string{picgoSecretKey}
+	if profiles, err := s.profiles.List(); err == nil {
+		for _, p := range profiles {
+			keys = append(keys, p.SecretKey())
+		}
+	}
+	for _, key := range keys {
+		if _, err := s.secrets.Get(key); err == nil {
+			continue // already in the file
+		}
+		value, err := legacySecrets.Get(key)
+		if err != nil {
+			continue // not there, or the user said no this time
+		}
+		if err := s.secrets.Set(key, value); err != nil {
+			continue // retry next launch rather than drop the key
+		}
+		_ = legacySecrets.Delete(key)
+	}
+}
+
 // setTransferListener records what to tell when the transfer list changes.
 func (s *Service) setTransferListener(fn func()) {
 	s.mu.Lock()
@@ -146,8 +174,13 @@ func (s *Service) transfersChanged() {
 	}
 }
 
+// legacySecrets is where older builds kept credentials; the file store
+// imports from it at startup. A variable so tests can stand in for the
+// keychain.
+var legacySecrets store.SecretStore = secretStore{}
+
 // secretStore is the credential store the window and the command line
-// share; see secrets.go.
+// used to share; see secrets.go.
 type secretStore = sharedSecrets
 
 // appIdentifier is the app's bundle identifier, which MyGo names the
@@ -1070,13 +1103,8 @@ func (s *Service) Info() AppInfo {
 			out.DataDir = dir
 		}
 	}
-	// The credential store is what keeps access keys; report when the
-	// system has none, so the interface can explain itself.
-	if _, err := mygo.Secrets.Get("__probe__"); err != nil && errors.Is(err, errors.ErrUnsupported) {
-		out.SecretOK = false
-		out.SecretWhy = "This system has no credential store, so access keys cannot be saved securely."
-	} else {
-		out.SecretOK = true
-	}
+	// Credentials live in the app's own data directory now, so no system
+	// credential store is required.
+	out.SecretOK = true
 	return out
 }
