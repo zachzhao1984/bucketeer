@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -11,13 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/egoist/mygo"
-
 	"bucketeer/internal/store"
 )
 
-// memSecrets is a credential store that keeps secrets in memory, so the
-// service can be tested without a system keychain.
+// memSecrets is an in-memory credential store for service tests.
 type memSecrets struct {
 	mu     sync.Mutex
 	values map[string][]byte
@@ -421,140 +417,6 @@ func waitForTransfers(t *testing.T, service *Service) {
 	t.Fatal("timed out waiting for the transfers to finish")
 }
 
-func TestR2ConnectionWithFile(t *testing.T) {
-	b, err := os.ReadFile("r2.json")
-	if err != nil {
-		t.Skip("r2.json not found")
-	}
-	var cfg struct {
-		Endpoint        string `json:"Endpoint"`
-		Bucket          string `json:"Bucket"`
-		AccessKeyID     string `json:"Access Key ID"`
-		SecretAccessKey string `json:"Secret Access Key"`
-	}
-	if err := json.Unmarshal(b, &cfg); err != nil {
-		t.Fatalf("unmarshal r2.json: %v", err)
-	}
-	if cfg.Endpoint == "" || cfg.AccessKeyID == "" || cfg.SecretAccessKey == "" {
-		t.Skip("incomplete r2.json")
-	}
-
-	service := newTestService(t)
-
-	// 1. Without bucket, TestConnection should explain bucket scope
-	noBucket := store.Input{
-		Name:        "R2 No Bucket",
-		Provider:    string(store.ProviderR2),
-		Endpoint:    cfg.Endpoint,
-		Region:      "auto",
-		AccessKeyID: cfg.AccessKeyID,
-		SecretKey:   cfg.SecretAccessKey,
-	}
-	resNoBucket, err := service.TestConnection(noBucket)
-	if err != nil {
-		t.Fatalf("TestConnection unexpected err: %v", err)
-	}
-	if resNoBucket.OK {
-		t.Log("Note: token unexpectedly had account-level ListBuckets permission")
-	} else if !strings.Contains(strings.ToLower(resNoBucket.Message), "bucket") {
-		t.Errorf("expected guidance on bucket field, got: %s", resNoBucket.Message)
-	}
-
-	// 2. With bucket, TestConnection should succeed
-	withBucket := noBucket
-	withBucket.Name = "R2 With Bucket"
-	withBucket.Bucket = cfg.Bucket
-	resWithBucket, err := service.TestConnection(withBucket)
-	if err != nil {
-		t.Fatalf("TestConnection with bucket err: %v", err)
-	}
-	if !resWithBucket.OK {
-		t.Fatalf("TestConnection with bucket failed: %s", resWithBucket.Message)
-	}
-	t.Logf("TestConnection with bucket succeeded: %s", resWithBucket.Message)
-
-	// 3. Save connection and Connect
-	p, err := service.SaveConnection("", withBucket)
-	if err != nil {
-		t.Fatalf("SaveConnection: %v", err)
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	info, err := service.Connect(ctx, p.ID)
-	if err != nil {
-		t.Fatalf("Connect failed: %v", err)
-	}
-	if !info.Connected {
-		t.Fatal("session reports not connected")
-	}
-
-	// 4. ListBuckets returns the configured bucket
-	buckets, err := service.ListBuckets(ctx)
-	if err != nil {
-		t.Fatalf("ListBuckets: %v", err)
-	}
-	if len(buckets) == 0 || buckets[0].Name != cfg.Bucket {
-		t.Fatalf("ListBuckets want [%s], got %+v", cfg.Bucket, buckets)
-	}
-
-	// 5. ListObjects on the bucket succeeds
-	listing, err := service.ListObjects(ctx, cfg.Bucket, "")
-	if err != nil {
-		t.Fatalf("ListObjects: %v", err)
-	}
-	t.Logf("ListObjects on %s: %d items", cfg.Bucket, len(listing.Items))
-}
-
-func TestSeedR2Connection(t *testing.T) {
-	// Only meaningful when the app ships an r2.json.
-	dir, err := mygo.App.Path(mygo.PathResources)
-	if err != nil {
-		t.Skip("no resources path")
-	}
-	if _, err := os.Stat(filepath.Join(dir, "r2.json")); err != nil {
-		t.Skip("r2.json not shipped")
-	}
-
-	service := newTestService(t)
-	if !service.seedR2Connection() {
-		t.Fatal("seedR2Connection reported nothing was seeded")
-	}
-
-	profile := service.r2Profile()
-	if profile == nil {
-		t.Fatal("r2Profile found nothing after seeding")
-	}
-	if profile.Provider != store.ProviderR2 {
-		t.Errorf("provider = %s, want r2", profile.Provider)
-	}
-	if profile.Bucket == "" {
-		t.Error("seeded profile has no bucket")
-	}
-	if !profile.HasSecret {
-		t.Error("seeded profile has no secret")
-	}
-
-	// Idempotent: seeding again neither errors nor duplicates.
-	if service.seedR2Connection() {
-		t.Fatal("seedR2Connection ran twice")
-	}
-	list, err := service.ListConnections()
-	if err != nil {
-		t.Fatalf("ListConnections: %v", err)
-	}
-	count := 0
-	for _, p := range list {
-		if p.Endpoint == profile.Endpoint && p.AccessKeyID == profile.AccessKeyID {
-			count++
-		}
-	}
-	if count != 1 {
-		t.Fatalf("seeded connection appears %d times, want 1", count)
-	}
-}
-
 // TestSettingsMigrateAppearance checks that a settings file from before the
 // three-way appearance choice still reads: a pinned dark keeps its pin, and
 // everything else follows the system.
@@ -623,101 +485,5 @@ func TestFileSecretsRoundTrip(t *testing.T) {
 	}
 	if _, err := again.Get("profile/x/secret"); !errors.Is(err, errSecretNotFound) {
 		t.Fatalf("after Delete, Get returned %v", err)
-	}
-}
-
-// TestKeychainImport moves the credentials an older build kept in the
-// keychain into the file store and clears the keychain entries.
-func TestKeychainImport(t *testing.T) {
-	old := legacySecrets
-	t.Cleanup(func() { legacySecrets = old })
-	keychain := &memSecrets{values: map[string][]byte{
-		"profile/definitely-not-a-real-id/secret": []byte("stale"),
-		"picgo-http-token":                        []byte("tok-9"),
-	}}
-	legacySecrets = keychain
-
-	dir := t.TempDir()
-	svc, err := newServiceAt(dir, newFileSecrets(dir))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer svc.Close()
-	// The connection exists before the import: only live profiles' keys
-	// are imported, and the secret key carries this profile's id. An old
-	// build wrote this key to the keychain, not to the file, so the file
-	// copy is taken back out before the import runs.
-	p, err := svc.profiles.Create(store.Input{
-		Name: "Acme", Provider: "other", Endpoint: "https://s3.example.com",
-		AccessKeyID: "AKIA", SecretKey: "wNHc1td",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := svc.secrets.Delete(p.SecretKey()); err != nil {
-		t.Fatal(err)
-	}
-	if err := keychain.Set(p.SecretKey(), []byte("wNHc1td")); err != nil {
-		t.Fatal(err)
-	}
-	svc.migrateKeychain()
-
-	// Both live keys are in the file and gone from the keychain; the
-	// keychain entry of a profile that no longer exists is left behind —
-	// deleting an unknown profile's key is not this store's business.
-	for _, key := range []string{p.SecretKey(), "picgo-http-token"} {
-		if got, err := svc.secrets.Get(key); err != nil {
-			t.Fatalf("%s did not import: %v", key, err)
-		} else if len(got) == 0 {
-			t.Fatalf("%s imported empty", key)
-		}
-		if _, err := keychain.Get(key); err == nil {
-			t.Fatalf("%s is still in the keychain", key)
-		}
-	}
-}
-
-// TestStartupImportsKeychain checks the wiring itself: a service built the
-// way the window builds it imports the keychain's credentials before
-// anything reads them, so the auto-reconnect finds its access key.
-func TestStartupImportsKeychain(t *testing.T) {
-	old := legacySecrets
-	t.Cleanup(func() { legacySecrets = old })
-	keychain := &memSecrets{}
-	legacySecrets = keychain
-
-	dir := t.TempDir()
-	// An old build's layout: the connection on file, its access key only
-	// in the keychain.
-	seed := store.NewProfileStore(filepath.Join(dir, "connections.json"), keychain)
-	p, err := seed.Create(store.Input{
-		Name: "Acme", Provider: "other", Endpoint: "https://s3.example.com",
-		AccessKeyID: "AKIA", SecretKey: "wNHc1td",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := keychain.Set("picgo-http-token", []byte("tok-9")); err != nil {
-		t.Fatal(err)
-	}
-
-	svc, err := newServiceIn(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer svc.Close()
-
-	if _, err := svc.secrets.Get(p.SecretKey()); err != nil {
-		t.Fatalf("the connection's access key was not imported: %v", err)
-	}
-	if got, err := svc.secrets.Get("picgo-http-token"); err != nil || string(got) != "tok-9" {
-		t.Fatalf("picgo token = %q, %v", got, err)
-	}
-	if _, err := keychain.Get(p.SecretKey()); err == nil {
-		t.Fatal("the access key is still in the keychain")
-	}
-	// The reconnect that failed in the field now works.
-	if _, err := svc.profiles.Secret(p.ID); err != nil {
-		t.Fatalf("Secret after import: %v", err)
 	}
 }

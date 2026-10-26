@@ -41,9 +41,9 @@ description: Work with the user's S3-compatible storage through the Bucketeer ap
 
 # Bucketeer
 
-Bucketeer keeps the user's bucket connections, and their access keys in the
-system credential store. Its command line speaks to the same connections, so
-there is nothing to configure and no key to copy.
+Bucketeer keeps the user's bucket connections and access keys in its local
+data folder. Its command line uses the same saved connections, so there is
+nothing to configure and no key to copy.
 
 The executable below is the app itself. Always pass a subcommand: with no
 arguments it opens the window instead of printing anything.

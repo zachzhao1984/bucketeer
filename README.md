@@ -128,14 +128,18 @@ the last week.
 
 ## Where credentials live
 
-Access keys go to `secrets.json` in the app's data folder, written with
-owner-only permissions (0600) — a deliberate trade of the system
-keychain's protection for not being asked to authorize the keychain at
-every launch of an ad-hoc signed build. `connections.json` holds only
-non-sensitive profile metadata, and the settings file holds preferences;
-neither contains a secret access key. Credentials an older build kept in
-the system keychain are imported once, on first launch, and removed from
-it.
+Access keys and the PicGo upload token live in `secrets.json` in the app's
+data folder, written with owner-only permissions (0600). Values are Base64
+encoded, not encrypted. The app and CLI use this file directly; neither
+accesses the system credential store or imports credentials from it.
+`connections.json` holds profile metadata, and the settings file holds
+preferences.
+
+New installations start without connections. Add your own connection in
+Settings → Connections; no personal or test account is bundled or loaded
+from the project directory. Keep local test configuration outside
+`resources/`: MyGo copies that directory into every package regardless of
+`.gitignore`. Tests enforce a public-asset allowlist for that directory.
 
 ## The window's title bar
 

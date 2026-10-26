@@ -105,20 +105,9 @@ func newService() (*Service, error) {
 	return newServiceIn(dataDir)
 }
 
-// newServiceIn builds the service living in dataDir: file credentials,
-// the one-time keychain import, and the shipped connection. The window
-// and the command line both end here.
+// newServiceIn builds a service using only credentials in its data folder.
 func newServiceIn(dataDir string) (*Service, error) {
-	secrets := newFileSecrets(dataDir)
-	svc, err := newServiceAt(dataDir, secrets)
-	if err != nil {
-		return nil, err
-	}
-	svc.migrateKeychain()
-	// Preload the Cloudflare R2 connection the app ships with (r2.json),
-	// so the app starts with a connection ready to use.
-	svc.seedR2Connection()
-	return svc, nil
+	return newServiceAt(dataDir, newFileSecrets(dataDir))
 }
 
 // newServiceAt builds a service rooted at the given directory, keeping
@@ -139,41 +128,6 @@ func newServiceAt(dataDir string, secrets store.SecretStore) (*Service, error) {
 	return s, nil
 }
 
-// migrateKeychain moves the credentials an older build kept in the system
-// keychain into the file store: one last read per key that is there (the
-// only authorization prompt left), then the keychain entries go. A key the
-// user declines to hand over stays in the keychain and the import retries
-// next launch.
-func (s *Service) migrateKeychain() {
-	keys := []string{picgoSecretKey}
-	if profiles, err := s.profiles.List(); err == nil {
-		for _, p := range profiles {
-			keys = append(keys, p.SecretKey())
-		}
-	}
-	importKeychainSecrets(s.secrets, keys...)
-}
-
-// importKeychainSecrets moves the named keys from the keychain into the
-// file store: one last read per key that is there, then the keychain
-// entries go. A key already in the file is left alone; a key the user
-// declines to hand over stays for the next attempt.
-func importKeychainSecrets(file store.SecretStore, keys ...string) {
-	for _, key := range keys {
-		if _, err := file.Get(key); err == nil {
-			continue // already in the file
-		}
-		value, err := legacySecrets.Get(key)
-		if err != nil {
-			continue // not there, or the user said no this time
-		}
-		if err := file.Set(key, value); err != nil {
-			continue // retry next launch rather than drop the key
-		}
-		_ = legacySecrets.Delete(key)
-	}
-}
-
 // setTransferListener records what to tell when the transfer list changes.
 func (s *Service) setTransferListener(fn func()) {
 	s.mu.Lock()
@@ -191,106 +145,6 @@ func (s *Service) transfersChanged() {
 	if fn != nil {
 		fn()
 	}
-}
-
-// legacySecrets is where older builds kept credentials; the file store
-// imports from it at startup. A variable so tests can stand in for the
-// keychain.
-var legacySecrets store.SecretStore = secretStore{}
-
-// secretStore is the credential store the window and the command line
-// used to share; see secrets.go.
-type secretStore = sharedSecrets
-
-// appIdentifier is the app's bundle identifier, which MyGo names the
-// credential store after.
-const appIdentifier = "dev.bucketeer.app"
-
-// r2Config is the shape of the optional r2.json the app ships with, which
-// preloads a Cloudflare R2 connection so the app starts ready to use.
-type r2Config struct {
-	Endpoint        string `json:"Endpoint"`
-	Bucket          string `json:"Bucket"`
-	AccessKeyID     string `json:"Access Key ID"`
-	SecretAccessKey string `json:"Secret Access Key"`
-}
-
-// readR2Config returns the Cloudflare R2 connection the app ships with,
-// from r2.json in the app's resources, or nothing when there is none.
-func readR2Config() (r2Config, bool) {
-	dir, err := mygo.App.Path(mygo.PathResources)
-	if err != nil {
-		return r2Config{}, false
-	}
-	b, err := os.ReadFile(filepath.Join(dir, "r2.json"))
-	if err != nil {
-		return r2Config{}, false
-	}
-	var cfg r2Config
-	if err := json.Unmarshal(b, &cfg); err != nil {
-		return r2Config{}, false
-	}
-	if cfg.Endpoint == "" || cfg.AccessKeyID == "" || cfg.SecretAccessKey == "" {
-		return r2Config{}, false
-	}
-	return cfg, true
-}
-
-// seedR2Connection saves the Cloudflare R2 connection from r2.json, when
-// the app ships one and it is not saved yet. It is idempotent: a saved
-// connection to the same endpoint with the same access key is left alone,
-// so the user's edits and renames are kept.
-func (s *Service) seedR2Connection() bool {
-	cfg, ok := readR2Config()
-	if !ok {
-		return false
-	}
-	list, err := s.profiles.List()
-	if err != nil {
-		return false
-	}
-	for _, p := range list {
-		if p.Endpoint == cfg.Endpoint && p.AccessKeyID == cfg.AccessKeyID {
-			return false // already saved
-		}
-	}
-
-	name := "Cloudflare R2"
-	if cfg.Bucket != "" {
-		name = "Cloudflare R2 · " + cfg.Bucket
-	}
-	if _, err := s.profiles.Create(store.Input{
-		Name:        name,
-		Provider:    string(store.ProviderR2),
-		Endpoint:    cfg.Endpoint,
-		Region:      "auto",
-		Bucket:      cfg.Bucket,
-		AccessKeyID: cfg.AccessKeyID,
-		SecretKey:   cfg.SecretAccessKey,
-		PathStyle:   false,
-	}); err != nil {
-		return false
-	}
-	return true
-}
-
-// r2Profile returns the preloaded Cloudflare R2 connection, if one is
-// saved, matching the r2.json the app ships with.
-func (s *Service) r2Profile() *store.Profile {
-	cfg, ok := readR2Config()
-	if !ok {
-		return nil
-	}
-	list, err := s.profiles.List()
-	if err != nil {
-		return nil
-	}
-	for i := range list {
-		if list[i].Endpoint == cfg.Endpoint && list[i].AccessKeyID == cfg.AccessKeyID {
-			return &list[i]
-		}
-	}
-	return nil
 }
 
 // settingsPath is where the settings file lives.

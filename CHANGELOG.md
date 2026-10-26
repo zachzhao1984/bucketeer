@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Remove system credential-store access and migration from the app and CLI.
+  Profile keys and the PicGo upload token use only the local credential file.
+- Remove bundled test-account loading and automatic R2 connection seeding.
+  New installations start without connections.
+- Restrict packaged resources to public app icons; private local test
+  configuration stays outside the resources directory.
+
 ## 1.2.0
 
 - New app icon: a blue bucket of files with the Cloudflare cloud mark.

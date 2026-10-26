@@ -206,8 +206,7 @@ func (p Profile) Host() string {
 	return strings.TrimSuffix(h, "/")
 }
 
-// SecretStore keeps small secrets, such as access keys, in the system's
-// credential store.
+// SecretStore keeps small secrets, such as access keys, outside profile metadata.
 type SecretStore interface {
 	Set(key string, value []byte) error
 	Get(key string) ([]byte, error)
@@ -505,8 +504,7 @@ func (s *ProfileStore) Delete(id string) error {
 		s.items = slices.Insert(s.items, i, removed)
 		return err
 	}
-	// The secret is gone from the file either way; a stale keychain entry
-	// is harmless, so a failure here does not fail the delete.
+	// Deleting stale credentials must not undo removal of the profile.
 	_ = s.secrets.Delete(removed.SecretKey())
 	return nil
 }

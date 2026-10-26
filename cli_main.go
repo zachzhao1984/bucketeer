@@ -31,23 +31,10 @@ func runCLI(args []string) int {
 	if dir, err := dataDirectory(); err == nil {
 		secrets := newFileSecrets(dir)
 		cfg.Profiles = store.NewProfileStore(filepath.Join(dir, "connections.json"), secrets)
-		migrateCLIKeychain(secrets, cfg.Profiles)
 	} else {
 		cfg.Profiles = store.NewProfileStore("", newFileSecrets(dir))
 	}
 	return cli.Run(args, cfg)
-}
-
-// migrateCLIKeychain imports the keychain entries of the connections on
-// file, so a command line run before the window's first import works.
-func migrateCLIKeychain(secrets store.SecretStore, profiles *store.ProfileStore) {
-	keys := []string{picgoSecretKey}
-	if list, err := profiles.List(); err == nil {
-		for _, p := range list {
-			keys = append(keys, p.SecretKey())
-		}
-	}
-	importKeychainSecrets(secrets, keys...)
 }
 
 // exePath is this program's own path, resolved through any link that
@@ -67,7 +54,7 @@ func exePath() string {
 // reads, found even when this program is started from a link or another
 // directory.
 func dataDirectory() (string, error) {
-	// An explicit override keeps tests and scripts off the real keychain.
+	// An explicit override keeps tests and scripts off the user's data.
 	if dir := os.Getenv("BUCKETEER_DATA_DIR"); dir != "" {
 		return dir, nil
 	}

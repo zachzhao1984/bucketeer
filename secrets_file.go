@@ -13,10 +13,8 @@ import (
 // errSecretNotFound says the store does not hold the key.
 var errSecretNotFound = errors.New("secret not found")
 
-// fileSecrets is the credential store: small secrets in a JSON file beside
-// the app's other data, mode 0600. The user chose convenience over the
-// system keychain, whose per-item authorization prompts an ad-hoc signed
-// build cannot make stick — every launch asked twice.
+// fileSecrets keeps credentials in a JSON file beside the app's other data,
+// mode 0600. It never reads or writes the system credential store.
 //
 // The file holds one JSON object mapping key to base64 value. A whole-file
 // read-modify-write under a mutex is correct for the sizes involved.

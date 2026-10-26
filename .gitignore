@@ -6,7 +6,10 @@ node_modules/
 /design-demos/
 r2.json
 resources/r2.json
+.local-config/
 *.local.json
+secrets.json
+connections.json
 mygo_windows_*.syso
 
 # The agent's own working files: a local skill install, its lock file, and

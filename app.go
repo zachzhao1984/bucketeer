@@ -302,9 +302,6 @@ func (a *App) attach(win *mygo.Window) {
 	a.svc.startPicGo()
 	a.setTitle()
 	a.refreshConnections()
-	// Connect to the preloaded Cloudflare R2 connection on startup, so the
-	// app opens already browsing it.
-	a.connectR2IfPresent()
 
 }
 
@@ -661,25 +658,6 @@ func (a *App) refreshConnections() {
 			a.connections = list
 			a.session = a.svc.CurrentConnection()
 			a.setTitle()
-		})
-	}()
-}
-
-// connectR2IfPresent connects to the preloaded Cloudflare R2 connection
-// when the app starts with none open, so the shipped connection is ready
-// to browse at once. It reads the saved connection list on a goroutine
-// and ignores failures silently.
-func (a *App) connectR2IfPresent() {
-	go func() {
-		profile := a.svc.r2Profile()
-		if profile == nil {
-			return
-		}
-		a.update(func() {
-			if a.session.Connected {
-				return // already connected to something
-			}
-			a.connect(profile.ID)
 		})
 	}()
 }
