@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.1
+
+- Refined app icon with a transparent background, shown at the top of the
+  README.
+
 ## 1.3.0
 
 - Remove system credential-store access and migration from the app and CLI.
