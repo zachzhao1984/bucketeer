@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.2.0
+
+- New app icon: a blue bucket of files with the Cloudflare cloud mark.
+- Check for updates from the app menu or Settings → About. Updates use
+  signed downloads, show release notes, and offer to restart when ready.
+- Future releases can download only the changes from an installed version,
+  with a full-download fallback. This is the first release with the updater;
+  install it manually once to receive future updates in the app.
+
 ## 1.1.1
 
 - Connections show each service's own mark — Cloudflare, AWS S3, Backblaze,

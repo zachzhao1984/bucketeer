@@ -1,9 +1,8 @@
 name: Release
 
-# A tag like v0.1.0 builds the app for macOS and Windows, and publishes the
-# installers to a GitHub release of that tag. Running the workflow by hand
-# builds the same artifacts and leaves them as a workflow artifact, so a
-# dry run never publishes anything.
+# A version tag builds the app for macOS, Windows and Linux, then publishes
+# installers and signed update files to a GitHub release of that tag.
+# A manual run builds the same artifacts without publishing.
 on:
   push:
     tags:
@@ -33,7 +32,13 @@ jobs:
       - uses: actions/checkout@v4
       - id: read
         name: Read the version
+        env:
+          MYGO_UPDATER_PRIVATE_KEY: ${{ secrets.MYGO_UPDATER_PRIVATE_KEY }}
         run: |
+          if [ -z "$MYGO_UPDATER_PRIVATE_KEY" ]; then
+            echo "MYGO_UPDATER_PRIVATE_KEY is required for signed updates" >&2
+            exit 1
+          fi
           version="$(jq -r .version mygo.json)"
           if [ -z "$version" ] || [ "$version" = "null" ]; then
             echo "mygo.json has no version" >&2
@@ -195,10 +200,12 @@ jobs:
         with:
           name: windows
           if-no-files-found: error
-          # The installer only: the executable it holds is not a download of
-          # its own, and would be listed beside it.
+          # Ship the installer and every update file the manifest references.
           path: |
             build/windows-*/**/*Setup*.exe
+            build/windows-*/*.tar.gz
+            build/windows-*/update-*.json
+            build/windows-*/*.delta
 
   linux:
     needs: [version, test]
@@ -237,6 +244,7 @@ jobs:
             build/linux-*/*.deb
             build/linux-*/update-*.json
             build/linux-*/*.delta
+            build/linux-*/install.sh
 
   # The smoke test runs each installer's payload the way a user's machine
   # would: the macOS app through `open`, the Windows executable directly with
@@ -424,8 +432,34 @@ jobs:
             arch="$(basename "$(dirname "$deb")" | sed 's/.*linux-//')"
             cp "$deb" "dist/Bucketeer-$VERSION-linux-$arch.deb"
           done < <(find artifacts -name '*.deb')
+          while IFS= read -r installer; do
+            arch="$(basename "$(dirname "$installer")" | sed 's/.*linux-//')"
+            cp "$installer" "dist/install-linux-$arch.sh"
+          done < <(find artifacts -path '*linux-*' -name install.sh)
 
           ls -lh dist
+
+      - name: Verify all update manifests have their downloads
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          from urllib.parse import urlparse
+
+          for target in ("darwin-universal", "windows-amd64", "linux-amd64", "linux-arm64"):
+              manifest = Path("dist") / f"update-{target}.json"
+              data = json.loads(manifest.read_text())
+              assert data["version"] == os.environ["VERSION"], manifest
+              for download in [data, *data.get("deltas", [])]:
+                  asset = Path("dist") / Path(urlparse(download["url"]).path).name
+                  assert asset.is_file(), f"{manifest}: missing {asset}"
+                  assert asset.stat().st_size == download["size"], f"{asset}: size mismatch"
+                  assert download["signature"], f"{asset}: missing signature"
+              print(f"{manifest}: downloads present")
+          PY
 
       - name: Write the release notes
         run: |
@@ -448,7 +482,7 @@ jobs:
             echo
             echo "- **macOS** — \`Bucketeer-$version-macos-universal.dmg\` runs on Apple silicon and Intel Macs."
             echo "- **Windows** — \`Bucketeer-$version-windows-amd64.exe\` installs for the current user; no administrator prompt."
-            echo "- **Linux** — Bucketeer-$version-linux-<arch>.tar.gz unpacks to the app and an install.sh that installs to ~/.local without root; the .deb suits apt-based systems. The window needs WebKitGTK 4.1 on screen (most desktops have it)."
+            echo '- **Linux** — download the .deb for your architecture, or the .tar.gz plus the matching install-linux-<arch>.sh script for a per-user install in ~/.local.'
             echo
             echo "The app also carries the \`bkt\` command line and a skill for coding agents;"
             echo "install both from **Settings → Command line**."
