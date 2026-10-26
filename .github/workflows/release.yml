@@ -421,13 +421,9 @@ jobs:
           find artifacts -name '*.delta' -exec cp {} dist/ \;
           find artifacts -name 'bucketeer-*.tar.gz' -exec cp {} dist/ \;
 
-          # The Linux packages carry their architecture in the directory
-          # mygo built them into; the asset name says linux-<arch> either
-          # way. Found by name, not by where the download put them.
-          while IFS= read -r tar; do
-            arch="$(basename "$(dirname "$tar")" | sed 's/.*linux-//')"
-            cp "$tar" "dist/Bucketeer-$VERSION-linux-$arch.tar.gz"
-          done < <(find artifacts -name '*linux-*.tar.gz')
+          # Linux uses the lowercase archive name referenced by the updater;
+          # GitHub treats uppercase/lowercase aliases as duplicate assets.
+          # Debian packages retain the usual download naming.
           while IFS= read -r deb; do
             arch="$(basename "$(dirname "$deb")" | sed 's/.*linux-//')"
             cp "$deb" "dist/Bucketeer-$VERSION-linux-$arch.deb"
@@ -449,6 +445,8 @@ jobs:
           from pathlib import Path
           from urllib.parse import urlparse
 
+          names = [p.name.casefold() for p in Path("dist").iterdir()]
+          assert len(names) == len(set(names)), "Duplicate release asset names ignoring case"
           for target in ("darwin-universal", "windows-amd64", "linux-amd64", "linux-arm64"):
               manifest = Path("dist") / f"update-{target}.json"
               data = json.loads(manifest.read_text())
