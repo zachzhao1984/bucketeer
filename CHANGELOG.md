@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.3.0
 
 - Remove system credential-store access and migration from the app and CLI.
   Profile keys and the PicGo upload token use only the local credential file.
@@ -8,6 +8,9 @@
   New installations start without connections.
 - Restrict packaged resources to public app icons; private local test
   configuration stays outside the resources directory.
+- Includes the new blue bucket app icon and signed in-app updates for
+  macOS, Windows, and Linux. Check for updates from the app menu or
+  Settings → About.
 
 ## 1.2.0
 
