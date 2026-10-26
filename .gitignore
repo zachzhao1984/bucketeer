@@ -3,6 +3,7 @@ node_modules/
 /build/
 /.mygo/
 /preview/
+/design-demos/
 r2.json
 resources/r2.json
 *.local.json
