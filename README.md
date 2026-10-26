@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="resources/icon.png" width="200" alt="Bucketeer app icon">
+</p>
+
 # Bucketeer
 
 A cross-platform desktop client for S3-compatible object storage, built with
