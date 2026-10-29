@@ -25,7 +25,7 @@ Releases carry a universal macOS disk image and a Windows installer:
 
 ## Menu bar uploads (macOS)
 
-Settings opens as a modal over the main window from the sidebar or app menu
+Settings opens as a modal over the main window from the connection menu or app menu
 (⌘,). Close it with the close button, Escape, or a click on the backdrop;
 the browser keeps its folder and selection.
 Preferences → **Show menu bar icon** controls icon visibility immediately;

@@ -38,7 +38,11 @@ func TestNativeNavigationAndConnectionForm(t *testing.T) {
 	if !tester.HasText("Add a connection") {
 		t.Fatal(tester.Texts())
 	}
-	if err := tester.Click("Settings"); err != nil {
+	if err := tester.Click("Current connection"); err != nil {
+		t.Fatal(err)
+	}
+	tester.Frame()
+	if err := tester.Click("Settings…"); err != nil {
 		t.Fatal(err)
 	}
 	tester.Frame()
@@ -432,7 +436,11 @@ func TestFlows(t *testing.T) {
 	tester.Frame()
 
 	// Settings is a modal; opening it preserves the file browser.
-	if err := tester.Click("Settings"); err != nil {
+	if err := tester.Click("Current connection"); err != nil {
+		t.Fatal(err)
+	}
+	tester.Frame()
+	if err := tester.Click("Settings…"); err != nil {
 		t.Fatal(err)
 	}
 	tester.Frame()

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The Settings entry is in the connection menu, alongside connection actions.
+
 - Settings opens as a centered modal over the main window, preserving the
   browser's folder and selection. Close it with Escape, the close button, or
   the backdrop. Preferences includes a persistent macOS menu bar icon switch

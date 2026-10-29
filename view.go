@@ -137,7 +137,6 @@ const (
 	navDashboard = "section:dashboard"
 	navFiles     = "section:files"
 	navRecent    = "section:recent"
-	navSettings  = "section:settings"
 )
 
 // sidebar draws the navigation: the three places to look, the folders of
@@ -192,12 +191,6 @@ func (a *App) sidebar(c *ui.Context) {
 						a.openPrefix(entry.Key)
 					})
 				}
-			})
-		})
-
-		ui.Column(c).Padding(0, 10, 0, 10).Gap(2).Children(func() {
-			navRow(c, navSettings, "Settings", iconSettings, a.sidebarID == navSettings, nil, func() {
-				a.setSection(sectionSettings)
 			})
 		})
 
@@ -354,6 +347,11 @@ func (a *App) connectionMenu(c *ui.Context) {
 			if menuItem(c, "Manage connections…", "settings", false, "") {
 				a.chipOpen = false
 				a.openSettingsPage(pageConnections)
+			}
+			menuSeparator(c)
+			if menuItem(c, "Settings…", "settings", false, "") {
+				a.chipOpen = false
+				a.openSettings()
 			}
 		})
 	})
