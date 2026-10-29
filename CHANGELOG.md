@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- MyGo 0.7.2, with the toolchain it needs (Go 1.27.3). 0.7 names the
+  Windows installer `<slug>-setup-<version>-<arch>.exe` and disk images
+  after the app's slug, so the release workflow's globs follow.
 - The first-run page is a board of the services the app speaks: the app's
   own icon, one tile per service with its brand mark, and a tile click
   opens the form already set to that service. The three feature lines are

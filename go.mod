@@ -1,10 +1,11 @@
 module bucketeer
 
-go 1.27.1
+go 1.27.3
 
 require (
-	github.com/egoist/mygo v0.6.3
+	github.com/egoist/mygo v0.7.2
 	github.com/minio/minio-go/v7 v7.4.1
+	golang.org/x/image v0.46.0
 )
 
 require (
@@ -24,7 +25,6 @@ require (
 	github.com/zeebo/xxh3 v1.1.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/crypto v0.57.0 // indirect
-	golang.org/x/image v0.46.0 // indirect
 	golang.org/x/net v0.60.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/text v0.43.0 // indirect

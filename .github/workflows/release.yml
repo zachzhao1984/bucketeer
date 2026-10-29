@@ -19,8 +19,8 @@ concurrency:
 env:
   # The toolchain the project pins, so a release builds what the tests ran
   # against.
-  GO_VERSION: "1.27.1"
-  MYGO_VERSION: "v0.6.3"
+  GO_VERSION: "1.27.3"
+  MYGO_VERSION: "v0.7.2"
 
 jobs:
   version:
@@ -201,8 +201,9 @@ jobs:
           name: windows
           if-no-files-found: error
           # Ship the installer and every update file the manifest references.
+          # MyGo 0.7 names it "<slug>-setup-<version>-<arch>.exe".
           path: |
-            build/windows-*/**/*Setup*.exe
+            build/windows-*/*-setup-*.exe
             build/windows-*/*.tar.gz
             build/windows-*/update-*.json
             build/windows-*/*.delta
@@ -311,7 +312,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
-          $setup = Get-ChildItem -Recurse artifacts -Filter *Setup*.exe | Select-Object -First 1
+          $setup = Get-ChildItem -Recurse artifacts -Filter *-setup-*.exe | Select-Object -First 1
           if (-not $setup) { throw "no installer was built" }
 
           # Install silently, exactly as the installer would for a user, then
@@ -410,7 +411,7 @@ jobs:
           if [ -z "$dmg" ]; then echo "no disk image" >&2; exit 1; fi
           cp "$dmg" "dist/Bucketeer-$VERSION-macos-universal.dmg"
 
-          setup="$(find artifacts -name '*Setup*.exe' -print -quit)"
+          setup="$(find artifacts -name '*-setup-*.exe' -print -quit)"
           if [ -z "$setup" ]; then echo "no Windows installer" >&2; exit 1; fi
           cp "$setup" "dist/Bucketeer-$VERSION-windows-amd64.exe"
 
