@@ -344,7 +344,7 @@ func (a *App) connectionMenu(c *ui.Context) {
 				a.chipOpen = false
 				a.openConnection(nil)
 			}
-			if menuItem(c, "Manage connections…", "settings", false, "") {
+			if menuItem(c, "Manage connections…", "bucket", false, "") {
 				a.chipOpen = false
 				a.openSettingsPage(pageConnections)
 			}
