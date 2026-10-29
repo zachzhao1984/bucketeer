@@ -42,6 +42,11 @@ func TestNativeNavigationAndConnectionForm(t *testing.T) {
 		t.Fatal(err)
 	}
 	tester.Frame()
+	if a.settingsApp == nil {
+		t.Fatal("Settings window controller missing")
+	}
+	a = a.settingsApp
+	tester = ui.NewTester(a.settingsView, 900, 680)
 	if !tester.HasText("Preferences") {
 		t.Fatalf("Settings did not open: %v", tester.Texts())
 	}
@@ -79,7 +84,7 @@ func TestNativeProviderSelectionAndEndpoint(t *testing.T) {
 	// keeps this test pointed at the form's own provider menu.
 	a.section = sectionSettings
 	a.openConnection(nil)
-	tester := ui.NewTester(a.view, 1180, 760)
+	tester := ui.NewTester(a.settingsView, 900, 680)
 	tester.SetTitleBar(ui.TitleBar{Height: 52, Left: 79})
 	tester.Frame()
 	if err := tester.Click("Choose provider"); err != nil {
@@ -314,7 +319,7 @@ func TestGenerateShots(t *testing.T) {
 		a := nativeTestApp(t)
 		a.connections = []store.Profile{p}
 		a.section = sectionSettings
-		tester := ui.NewTester(a.view, 1180, 760)
+		tester := ui.NewTester(a.settingsView, 900, 680)
 		tester.SetTitleBar(ui.TitleBar{Height: 52, Left: 79})
 		save(tester, "settings.png")
 
@@ -427,11 +432,15 @@ func TestFlows(t *testing.T) {
 	a.transfersOpen = false
 	tester.Frame()
 
-	// Settings is one sheet with three pages.
+	// Settings has its own window; opening it preserves the file browser.
 	if err := tester.Click("Settings"); err != nil {
 		t.Fatal(err)
 	}
 	tester.Frame()
+	if a.section != sectionFiles || a.settingsApp == nil {
+		t.Fatal("Settings replaced the browser")
+	}
+	tester = ui.NewTester(a.settingsApp.settingsView, 900, 680)
 	for _, page := range []string{"Connections", "About", "Preferences"} {
 		if err := tester.Click(page); err != nil {
 			t.Fatalf("page %s: %v", page, err)
@@ -488,7 +497,7 @@ func TestNativeCommandLinePage(t *testing.T) {
 	a.section = sectionSettings
 	a.settingsPage = pageCLI
 	a.refreshCLIState()
-	tester := ui.NewTester(a.view, 1180, 1000)
+	tester := ui.NewTester(a.settingsView, 900, 1000)
 	tester.SetTitleBar(ui.TitleBar{Height: 52, Left: 79})
 	tester.Frame()
 
@@ -582,7 +591,7 @@ func TestSettingsSidebarAlignsLeft(t *testing.T) {
 	a := nativeTestApp(t)
 	a.section = sectionSettings
 	a.settingsPage = pagePreferences
-	tester := ui.NewTester(a.view, 1180, 820)
+	tester := ui.NewTester(a.settingsView, 900, 820)
 	tester.SetTitleBar(ui.TitleBar{Height: 52, Left: 79})
 	tester.Frame()
 
@@ -646,7 +655,7 @@ func TestSettingsSidebarAlignsLeft(t *testing.T) {
 func TestSettingsPageTitles(t *testing.T) {
 	a := nativeTestApp(t)
 	a.section = sectionSettings
-	tester := ui.NewTester(a.view, 1180, 820)
+	tester := ui.NewTester(a.settingsView, 900, 820)
 	tester.SetTitleBar(ui.TitleBar{Height: 52, Left: 79})
 
 	for _, page := range []struct {
@@ -663,7 +672,7 @@ func TestSettingsPageTitles(t *testing.T) {
 		if !tester.HasText(page.title) {
 			t.Errorf("the %s page has no title", page.title)
 		}
-		if got := a.sectionTitle(); got != page.title {
+		if got := a.settingsPageTitle(); got != page.title {
 			t.Errorf("the window title says %q on the %s page, want %q", got, page.title, page.title)
 		}
 	}
@@ -780,8 +789,8 @@ func TestOpenSettingsPutsPreferencesForward(t *testing.T) {
 	a.section = sectionFiles
 	a.settingsPage = pageCLI
 	a.openSettings()
-	if a.section != sectionSettings || a.settingsPage != pagePreferences {
-		t.Fatalf("openSettings landed on %v / %v", a.section, a.settingsPage)
+	if a.section != sectionFiles || a.settingsApp == nil || a.settingsApp.settingsPage != pagePreferences {
+		t.Fatalf("openSettings replaced the browser or did not open Preferences")
 	}
 }
 

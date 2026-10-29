@@ -56,7 +56,11 @@ type App struct {
 	prefs          Settings
 	settingsWrites chan Settings
 	win            *mygo.Window
-	// ctx is cancelled when the window closes, so work in flight stops.
+	settingsApp    *App
+	settingsOwner  *App
+	menuBarStop    func()
+	menuBarTemps   []string
+	// ctx is cancelled when this controller shuts down.
 	ctx    context.Context
 	cancel context.CancelFunc
 
@@ -288,7 +292,12 @@ func newApp(svc *Service) *App {
 				return
 			case settings := <-a.settingsWrites:
 				if err := svc.SetSettings(settings); err != nil {
-					a.update(func() { a.fail(err) })
+					a.update(func() {
+						a.fail(err)
+						if child := a.settingsApp; child != nil {
+							child.fail(err)
+						}
+					})
 				}
 			}
 		}
@@ -315,8 +324,18 @@ func (a *App) attach(win *mygo.Window) {
 
 // close stops the work in flight and the transfers.
 func (a *App) close() {
+	if a.settingsApp != nil {
+		a.settingsApp.cancel()
+	}
 	a.cancel()
 	a.svc.Close()
+	if a.menuBarStop != nil {
+		a.menuBarStop()
+		a.menuBarStop = nil
+	}
+	for _, dir := range a.menuBarTemps {
+		_ = os.RemoveAll(dir)
+	}
 }
 
 /* -------------------------------------------------------------------------
@@ -333,6 +352,7 @@ func (a *App) update(fn func()) {
 		// No window yet: startup only, and tests. There is no main loop
 		// to post to, so the callback runs where it is.
 		fn()
+		a.syncSettingsConnection()
 		return
 	}
 	if a.win.IsDestroyed() {
@@ -341,6 +361,7 @@ func (a *App) update(fn func()) {
 	a.win.Update(func() {
 		if a.ctx.Err() == nil {
 			fn()
+			a.syncSettingsConnection()
 		}
 	})
 }
@@ -367,6 +388,10 @@ func (a *App) browsing() bool { return a.bucket != "" }
 // without a connection to measure, so asking for one before there is
 // leaves the window where it can actually do something.
 func (a *App) setSection(s Section) {
+	if s == sectionSettings {
+		a.openSettings()
+		return
+	}
 	if s == sectionDashboard && !a.session.Connected {
 		s = sectionFiles
 	}
@@ -656,6 +681,10 @@ func (a *App) chosenFolders() bool {
 
 // refreshConnections reloads the saved connections.
 func (a *App) refreshConnections() {
+	if a.settingsOwner != nil {
+		a.settingsOwner.refreshConnections()
+		return
+	}
 	go func() {
 		list, err := a.svc.ListConnections()
 		a.update(func() {
@@ -868,6 +897,10 @@ func (a *App) loadThumbnails(items []store.Entry) {
 
 // connect opens a saved connection and browses its buckets.
 func (a *App) connect(id string) {
+	if a.settingsOwner != nil {
+		a.settingsOwner.connect(id)
+		return
+	}
 	a.connectionSeq++
 	token := a.connectionSeq
 	a.next()
@@ -903,6 +936,10 @@ func (a *App) connect(id string) {
 
 // disconnect closes the connection and returns to the welcome screen.
 func (a *App) disconnect() {
+	if a.settingsOwner != nil {
+		a.settingsOwner.disconnect()
+		return
+	}
 	a.connectionSeq++
 	a.next()
 	a.statSeq++

@@ -28,9 +28,10 @@ func TestMenuBarNativePasteboardDrops(t *testing.T) {
 	defer mbSend(pool, "drain")
 	pb := mbSend(mbClass("NSPasteboard"), "pasteboardWithUniqueName")
 	defer mbSend(pb, "releaseGlobally")
-	m := &nativeMenuBar{}
+	owner := &App{}
+	m := &nativeMenuBar{app: owner}
 	defer func() {
-		for _, dir := range m.temporaryDirectories {
+		for _, dir := range owner.menuBarTemps {
 			_ = os.RemoveAll(dir)
 		}
 	}()
@@ -78,6 +79,9 @@ func TestMenuBarNativePasteboardDrops(t *testing.T) {
 		if info.Mode().Perm() != 0600 {
 			t.Fatalf("image permissions = %o", info.Mode().Perm())
 		}
+	}
+	if len(owner.menuBarTemps) != 2 {
+		t.Fatal("staged images must belong to the app, so hiding the icon cannot remove active uploads")
 	}
 	mbSend(pb, "clearContents")
 	if paths, err := m.droppedPaths(pb); err != nil || len(paths) != 0 {

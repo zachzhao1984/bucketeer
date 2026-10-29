@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Settings opens in a separate, reusable window, preserving the main window's
+  folder and selection. Preferences includes a persistent macOS menu bar icon
+  switch that takes effect immediately.
+
 - The menu bar icon derives from the app's bucket-and-cards artwork, rendered
   as a monochrome template that follows the menu bar appearance.
 

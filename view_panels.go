@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"runtime"
 	"time"
 
 	"github.com/egoist/mygo/plugins/updater"
@@ -464,6 +465,8 @@ func (a *App) settingsPageTitle() string {
 	switch a.settingsPage {
 	case pageConnections:
 		return "Connections"
+	case pagePicGo:
+		return "Image hosting"
 	case pageCLI:
 		return "Command line"
 	case pageAbout:
@@ -515,6 +518,17 @@ func (a *App) settingsPreferences(c *ui.Context) {
 			})
 		})
 
+		if runtime.GOOS == "darwin" {
+			ui.Column(c).Gap(6).Children(func() {
+				ui.Text(c, "Menu bar").FontSize(typeBody).TextColor(t.TextMuted)
+				group(c, func() {
+					a.settingRow(c, "Show menu bar icon", "Drop files onto the icon to upload to your default bucket.", func() {
+						ctlSwitch(c, "menu-bar-icon", &a.prefs.ShowMenuBarIcon, "Show Bucketeer in menu bar").OnChange(a.persistSettings)
+					})
+				})
+			})
+		}
+
 		ui.Column(c).Gap(6).Children(func() {
 			ui.Text(c, "Browsing").FontSize(typeBody).TextColor(t.TextMuted)
 			group(c, func() {
@@ -522,7 +536,11 @@ func (a *App) settingsPreferences(c *ui.Context) {
 					ctlSwitch(c, "thumbnails", &a.prefs.ShowThumbnails, "Show image thumbnails").OnChange(func() {
 						a.persistSettings()
 						if a.prefs.ShowThumbnails {
-							a.loadThumbnails(a.source().Items)
+							target := a
+							if a.settingsOwner != nil {
+								target = a.settingsOwner
+							}
+							target.loadThumbnails(target.source().Items)
 						}
 					})
 				})
@@ -733,8 +751,20 @@ func settingRule(c *ui.Context) {
 }
 
 func (a *App) persistSettings() {
-	settings := a.prefs
-	a.settingsWrites <- settings
+	// Image hosting saves its own live configuration through the service.
+	// Preserve it when either window writes the general preferences.
+	a.prefs.PicGo = a.svc.GetSettings().PicGo
+	root := a
+	if a.settingsOwner != nil {
+		root = a.settingsOwner
+	}
+	root.prefs = a.prefs
+	if child := root.settingsApp; child != nil {
+		child.prefs = a.prefs
+	}
+	root.syncMenuBar()
+	root.invalidatePreferenceWindows()
+	root.settingsWrites <- a.prefs
 }
 
 // setAppearance pins the interface's appearance, or returns it to the

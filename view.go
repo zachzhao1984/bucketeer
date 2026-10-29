@@ -206,8 +206,6 @@ func (a *App) sidebar(c *ui.Context) {
 // is looking: the root folder that holds the browsed prefix, if any.
 func (a *App) syncSidebarChoice() {
 	switch {
-	case a.section == sectionSettings:
-		a.sidebarID = navSettings
 	case a.section == sectionRecent:
 		a.sidebarID = navRecent
 	case a.section == sectionDashboard && a.session.Connected:
@@ -350,7 +348,7 @@ func (a *App) connectionMenu(c *ui.Context) {
 			}
 			if menuItem(c, "Manage connections…", "settings", false, "") {
 				a.chipOpen = false
-				a.setSection(sectionSettings)
+				a.openSettingsPage(pageConnections)
 			}
 		})
 	})
@@ -464,7 +462,7 @@ func (a *App) toolbarActions(c *ui.Context) {
 		return
 	}
 
-	if a.section == sectionSettings || !a.session.Connected {
+	if !a.session.Connected {
 		return
 	}
 
@@ -964,10 +962,6 @@ func (a *App) selectionActions(c *ui.Context) {
 // sectionTitle is what the toolbar says when there is no path to show.
 func (a *App) sectionTitle() string {
 	switch {
-	case a.section == sectionSettings:
-		// The path reads "Settings › Preferences", so the sheet shows
-		// which settings page is open rather than the section again.
-		return a.settingsPageTitle()
 	case a.section == sectionRecent:
 		return "Recent files"
 	case a.section == sectionDashboard && a.session.Connected:
@@ -1000,8 +994,6 @@ func (a *App) content(c *ui.Context) {
 			a.errorBanner(c)
 		}
 		switch {
-		case a.section == sectionSettings:
-			a.settings(c)
 		case !a.session.Connected:
 			a.welcome(c)
 		case a.section == sectionDashboard:

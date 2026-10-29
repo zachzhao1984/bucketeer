@@ -8,6 +8,7 @@ import (
 	"github.com/egoist/mygo/ui"
 	"log"
 	"os"
+	"runtime"
 )
 
 func main() {
@@ -26,7 +27,6 @@ func main() {
 		log.Fatal(err)
 	}
 	app := newApp(service)
-	var stopMenuBar func()
 	mygo.App.WhenReady(func() {
 		win := mygo.NewWindow(mygo.WindowOptions{
 			Title: appName, Width: 1180, Height: 760, MinWidth: 900, MinHeight: 560,
@@ -38,7 +38,22 @@ func main() {
 			StateKey: "main", Content: ui.View(app.view),
 		})
 		app.attach(win)
-		stopMenuBar = startMenuBar(app)
+		if runtime.GOOS == "darwin" {
+			// Keep the main window available through the Dock even when the
+			// user disables the menu bar icon or closes only Settings.
+			win.OnClose(func(e *mygo.CloseEvent) {
+				if app.ctx.Err() == nil {
+					e.PreventDefault()
+					win.Hide()
+				}
+			})
+			mygo.App.OnActivate(func(hasVisibleWindows bool) {
+				if !hasVisibleWindows && app.ctx.Err() == nil {
+					win.Show()
+				}
+			})
+		}
+		app.syncMenuBar()
 		mygo.App.SetMenu(mygo.NewMenu([]*mygo.MenuItem{
 			{Role: mygo.RoleAppMenu, Submenu: []*mygo.MenuItem{
 				{Role: mygo.RoleAbout},
@@ -63,9 +78,7 @@ func main() {
 				mygo.Separator(),
 				{Label: "Install Command Line…", Click: func(*mygo.MenuItem, *mygo.Window) {
 					win.Update(func() {
-						app.setSection(sectionSettings)
-						app.settingsPage = pageCLI
-						app.refreshCLIState()
+						app.openSettingsPage(pageCLI)
 					})
 				}},
 				mygo.Separator(), {Role: mygo.RoleClose},
@@ -75,9 +88,6 @@ func main() {
 	})
 	mygo.App.OnBeforeQuit(func(*mygo.QuitEvent) {
 		app.close()
-		if stopMenuBar != nil {
-			stopMenuBar()
-		}
 	})
 	if err := mygo.App.Run(); err != nil {
 		log.Fatal(err)

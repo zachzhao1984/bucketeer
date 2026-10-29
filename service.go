@@ -65,8 +65,9 @@ type Settings struct {
 	DarkMode bool `json:"darkMode,omitempty"`
 	// PicGo configures the image-upload service, kept beside the rest of
 	// the preferences because it is one.
-	PicGo         PicGoConfig   `json:"picgo"`
-	MenuBarUpload MenuBarTarget `json:"menuBarUpload"`
+	PicGo           PicGoConfig   `json:"picgo"`
+	MenuBarUpload   MenuBarTarget `json:"menuBarUpload"`
+	ShowMenuBarIcon bool          `json:"showMenuBarIcon"`
 }
 
 func defaultSettings() Settings {
@@ -76,6 +77,7 @@ func defaultSettings() Settings {
 		ConfirmDelete:   true,
 		PresignTTLHours: 24,
 		Appearance:      "system",
+		ShowMenuBarIcon: true,
 		PicGo:           defaultPicGo(),
 	}
 }

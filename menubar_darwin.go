@@ -11,7 +11,6 @@ import (
 	"unsafe"
 
 	"github.com/ebitengine/purego/objc"
-	"github.com/egoist/mygo"
 )
 
 //go:embed assets/menubar-template.png
@@ -32,7 +31,6 @@ type menuBarPoint struct {
 type nativeMenuBar struct {
 	app                      *App
 	item, view, menu, target objc.ID
-	temporaryDirectories     []string
 }
 
 // AppKit calls all these methods on the main thread.
@@ -168,22 +166,17 @@ func startMenuBar(a *App) func() {
 	activeMenuBar = m
 	mbSend(button, "addSubview:", m.view)
 	m.refreshTarget()
-	off := a.win.OnClose(func(e *mygo.CloseEvent) { e.PreventDefault(); a.win.Hide() })
 	return func() {
-		off()
 		activeMenuBar = nil
 		mbSend(bar, "removeStatusItem:", m.item)
 		mbSend(m.item, "release")
 		mbSend(m.view, "release")
 		mbSend(m.menu, "release")
-		for _, dir := range m.temporaryDirectories {
-			_ = os.RemoveAll(dir)
-		}
 	}
 }
 
 func (m *nativeMenuBar) refreshTarget() {
-	target := m.app.svc.GetSettings().MenuBarUpload
+	target := m.app.prefs.MenuBarUpload
 	title := "Default bucket: not set"
 	if target.Bucket != "" {
 		title = "Default bucket: " + target.Bucket
@@ -227,6 +220,6 @@ func (m *nativeMenuBar) droppedPaths(pb objc.ID) ([]string, error) {
 		_ = os.RemoveAll(dir)
 		return nil, err
 	}
-	m.temporaryDirectories = append(m.temporaryDirectories, dir)
+	m.app.menuBarTemps = append(m.app.menuBarTemps, dir)
 	return []string{path}, nil
 }

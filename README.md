@@ -25,6 +25,10 @@ Releases carry a universal macOS disk image and a Windows installer:
 
 ## Menu bar uploads (macOS)
 
+Settings opens in its own window from the sidebar or the app menu (⌘,).
+Preferences → **Show menu bar icon** controls icon visibility immediately;
+the choice is saved across launches.
+
 Open a connection and bucket, then click Bucketeer's menu bar icon and choose
 **Use Current Bucket as Default**. Drag images, files, or folders onto the icon
 to upload to that bucket's root. The saved destination stays the same when you

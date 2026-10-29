@@ -386,8 +386,7 @@ func (a *App) openInBrowser(key string) {
 
 // openSettings shows the settings, on the Preferences pane.
 func (a *App) openSettings() {
-	a.setSection(sectionSettings)
-	a.settingsPage = pagePreferences
+	a.openSettingsPage(pagePreferences)
 }
 
 // togglePreview opens the one chosen object's detail, or closes it when it

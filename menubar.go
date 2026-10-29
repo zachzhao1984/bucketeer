@@ -37,17 +37,13 @@ func (a *App) menuBarAction(action int, paths []string) {
 			a.win.Show()
 			return
 		}
-		settings := a.svc.GetSettings()
-		settings.MenuBarUpload = MenuBarTarget{ProfileID: a.session.Profile.ID, Bucket: a.bucket}
-		if err := a.svc.SetSettings(settings); err != nil {
-			a.fail(err)
-			return
-		}
+		a.prefs.MenuBarUpload = MenuBarTarget{ProfileID: a.session.Profile.ID, Bucket: a.bucket}
+		a.persistSettings()
 		a.notice = "Menu bar uploads go to " + a.bucket + "/"
 	case 2:
 		mygo.App.Quit()
 	case 3:
-		target := a.svc.GetSettings().MenuBarUpload
+		target := a.prefs.MenuBarUpload
 		if target.ProfileID == "" || target.Bucket == "" {
 			a.notice = "Choose Use Current Bucket as Default in the menu bar before dropping files."
 			a.win.Show()
