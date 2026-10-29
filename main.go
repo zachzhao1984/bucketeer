@@ -26,6 +26,7 @@ func main() {
 		log.Fatal(err)
 	}
 	app := newApp(service)
+	var stopMenuBar func()
 	mygo.App.WhenReady(func() {
 		win := mygo.NewWindow(mygo.WindowOptions{
 			Title: appName, Width: 1180, Height: 760, MinWidth: 900, MinHeight: 560,
@@ -37,6 +38,7 @@ func main() {
 			StateKey: "main", Content: ui.View(app.view),
 		})
 		app.attach(win)
+		stopMenuBar = startMenuBar(app)
 		mygo.App.SetMenu(mygo.NewMenu([]*mygo.MenuItem{
 			{Role: mygo.RoleAppMenu, Submenu: []*mygo.MenuItem{
 				{Role: mygo.RoleAbout},
@@ -71,7 +73,12 @@ func main() {
 			{Role: mygo.RoleEditMenu}, {Role: mygo.RoleWindowMenu},
 		}))
 	})
-	mygo.App.OnBeforeQuit(func(*mygo.QuitEvent) { app.close() })
+	mygo.App.OnBeforeQuit(func(*mygo.QuitEvent) {
+		app.close()
+		if stopMenuBar != nil {
+			stopMenuBar()
+		}
+	})
 	if err := mygo.App.Run(); err != nil {
 		log.Fatal(err)
 	}

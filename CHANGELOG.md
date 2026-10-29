@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- macOS menu bar uploads: drop files, folders, or PNG/TIFF images onto the
+  icon to upload to a saved default connection and bucket. Set the destination
+  with Use Current Bucket as Default; uploads keep running when the window
+  closes and appear in the existing transfer list.
+
 ## 1.4.0
 
 - MyGo 0.7.2, with the toolchain it needs (Go 1.27.3). 0.7 names the

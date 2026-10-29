@@ -23,6 +23,19 @@ Releases carry a universal macOS disk image and a Windows installer:
 - **Windows 10 or later**: `Bucketeer-<version>-windows-amd64.exe`, which
   installs for the current user, with no administrator prompt
 
+## Menu bar uploads (macOS)
+
+Open a connection and bucket, then click Bucketeer's menu bar icon and choose
+**Use Current Bucket as Default**. Drag images, files, or folders onto the icon
+to upload to that bucket's root. The saved destination stays the same when you
+browse another connection or folder. Folder uploads preserve their directory
+structure; existing object names follow the normal upload behavior.
+
+PNG/TIFF image drags without a local file become uniquely named PNG files.
+Uploads appear in the main window's transfer list. Closing the main window
+leaves the menu bar and transfers running; choose **Open Bucketeer** to return
+or **Quit Bucketeer** to stop. Menu bar drag and drop is available on macOS.
+
 ## Image hosting for notebooks
 
 Settings → Image hosting starts a small upload service on this machine that

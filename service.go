@@ -65,7 +65,8 @@ type Settings struct {
 	DarkMode bool `json:"darkMode,omitempty"`
 	// PicGo configures the image-upload service, kept beside the rest of
 	// the preferences because it is one.
-	PicGo PicGoConfig `json:"picgo"`
+	PicGo         PicGoConfig   `json:"picgo"`
+	MenuBarUpload MenuBarTarget `json:"menuBarUpload"`
 }
 
 func defaultSettings() Settings {
@@ -739,6 +740,12 @@ func (s *Service) UploadPaths(ctx context.Context, bucket, prefix string, paths 
 	if err != nil {
 		return 0, err
 	}
+	return s.uploadPathsTo(session, bucket, prefix, paths)
+}
+
+// uploadPathsTo keeps each batch bound to its original connection, even when
+// the browser switches to another profile while uploads are queued.
+func (s *Service) uploadPathsTo(session *store.Session, bucket, prefix string, paths []string) (int, error) {
 	if len(paths) == 0 {
 		return 0, errors.New("choose some files to upload")
 	}
