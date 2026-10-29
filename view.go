@@ -329,11 +329,7 @@ func (a *App) connectionMenu(c *ui.Context) {
 				for _, p := range a.connections {
 					profile := p
 					chosen := a.session.Profile != nil && a.session.Profile.ID == profile.ID
-					detail := profile.Host()
-					if profile.Bucket != "" {
-						detail += " · " + profile.Bucket
-					}
-					if menuItem(c, profile.Name, "", chosen, detail) {
+					if menuItem(c, profile.Name, "", chosen, "") {
 						a.chipOpen = false
 						a.connect(profile.ID)
 					}
