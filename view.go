@@ -1110,7 +1110,6 @@ func entryIcon(e store.Entry) *ui.SVG { return kindIcon(kindOf(e.Key, e.Folder))
 // are what it shows.
 func (a *App) welcome(c *ui.Context) {
 	t := c.Theme()
-	ch := chromeOf(t)
 
 	ui.Column(c).Fill().Center().Padding(20, 40, 44, 40).Children(func() {
 		ui.Column(c).AlignItems(ui.Center).Children(func() {
@@ -1121,11 +1120,11 @@ func (a *App) welcome(c *ui.Context) {
 				FontWeight(weightSemi).
 				TextColor(t.Text).
 				Margin(16, 0, 0, 0)
-			ui.Text(c, "Connect a bucket with an access key.").
+			ui.Text(c, "Connect a bucket with an access key. Any S3-compatible service works.").
 				FontSize(typeBody).
 				TextColor(t.TextMuted).
 				TextAlign(ui.Center).
-				MaxWidth(430).
+				MaxWidth(520).
 				Margin(7, 0, 0, 0)
 
 			// Every service the form offers but the catch-all: that one is
@@ -1136,10 +1135,10 @@ func (a *App) welcome(c *ui.Context) {
 					presets = append(presets, preset)
 				}
 			}
-			ui.Column(c).Gap(10).Margin(26, 0, 0, 0).Children(func() {
+			ui.Column(c).Gap(12).Margin(26, 0, 0, 0).Children(func() {
 				for first := 0; first < len(presets); first += 4 {
 					row := presets[first:min(first+4, len(presets))]
-					ui.Row(c).Gap(10).Children(func() {
+					ui.Row(c).FillWidth().Justify(ui.Center).Gap(12).Children(func() {
 						for _, preset := range row {
 							a.welcomeTile(c, preset)
 						}
@@ -1147,24 +1146,19 @@ func (a *App) welcome(c *ui.Context) {
 				}
 			})
 
-			ui.Row(c).Gap(14).AlignItems(ui.Center).Margin(22, 0, 0, 0).Children(func() {
-				custom := ui.ButtonBase(c.Key("welcome-custom")).
-					Cursor(ui.CursorPointer).
-					Label("Use a custom endpoint")
-				custom.Children(func() {
-					ui.Text(c, "Use a custom endpoint").
-						FontSize(typeSmall).
-						FontWeight(weightMedium).
-						TextColor(t.Accent)
-				})
-				if custom.Clicked() {
-					a.openConnectionFor(store.ProviderOther)
-				}
-				ui.Box(c).Width(1).Height(12).Shrink(0).Background(ch.hairline)
-				ui.Text(c, "Any S3-compatible endpoint works").
-					FontSize(typeCaption).
-					TextColor(t.TextMuted)
+			custom := ui.ButtonBase(c.Key("welcome-custom")).
+				Cursor(ui.CursorPointer).
+				Label("Use a custom endpoint").
+				Margin(20, 0, 0, 0)
+			custom.Children(func() {
+				ui.Text(c, "Use a custom endpoint").
+					FontSize(typeSmall).
+					FontWeight(weightMedium).
+					TextColor(t.Accent)
 			})
+			if custom.Clicked() {
+				a.openConnectionFor(store.ProviderOther)
+			}
 
 			if len(a.connections) > 0 {
 				ui.Text(c, plural(len(a.connections), "Saved connection", "Saved connections")+" in Settings → Connections").
@@ -1215,12 +1209,17 @@ func (a *App) welcomeTile(c *ui.Context, preset store.Preset) {
 		if hovered {
 			p.Fill(r, ch.hover, 12)
 		}
-		// The first tile is where the app would start, so it carries the
-		// accent; the rest are quiet until pointed at.
+		// No tile claims to be chosen: the board is a choice, not a state.
 		edge := ch.hairline
-		if preset.ID == store.ProviderR2 || hovered {
+		if hovered {
 			edge = t.Accent
 		}
+		if t.Dark {
+			p.Stroke(r, edge, 12, 1)
+			return
+		}
+		// On warm paper a hairline alone reads as a table, not as buttons.
+		p.Shadow(r, 12, 0, 1, 3, 0, ui.RGBA(31, 36, 33, 0.10))
 		p.Stroke(r, edge, 12, 1)
 	})
 	tile.Children(func() {
