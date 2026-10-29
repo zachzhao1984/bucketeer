@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.5.0
 
 - New connections offer six branded providers; existing MinIO profiles remain
   usable. Amazon S3 uses the S3 Standard-IA icon from theSVG.
