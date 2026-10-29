@@ -571,7 +571,9 @@ func connectionMark(c *ui.Context, profile store.Profile, size float32) ui.Eleme
 		p.Stroke(r, tint.Alpha(0.45), size*0.30, 1)
 	})
 	plate.Children(func() {
-		ui.Icon(c, svg).FontSize(size * 0.60)
+		// Image keeps a brand's own colors; Icon would paint it in the
+		// text color and turn the mark into a silhouette.
+		ui.Image(c, svg).Size(size*0.62, size*0.62)
 	})
 	return plate
 }

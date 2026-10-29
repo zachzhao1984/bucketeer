@@ -434,6 +434,15 @@ func (a *App) openConnection(existing *store.Profile) {
 	a.dlg = dialogConnection
 }
 
+// openConnectionFor opens the new-connection form already set to one
+// service, which is what a tile on the first-run page asks for.
+func (a *App) openConnectionFor(provider store.Provider) {
+	a.openConnection(nil)
+	if preset, ok := store.PresetFor(provider); ok {
+		a.applyProvider(preset.Label)
+	}
+}
+
 // testConnection checks the credentials in the form without saving them.
 func (a *App) testConnection() {
 	if a.conn.busy {

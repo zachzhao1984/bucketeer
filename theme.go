@@ -195,6 +195,7 @@ const (
 	typeNav      = 14.0 // the sidebar's rows
 	typeHeadline = 15.0 // dialog titles, section headings
 	typeTitle    = 20.0 // the place being browsed
+	typeHero     = 24.0 // the first-run page's one line
 	typeDisplay  = 26.0 // a figure on the dashboard
 )
 

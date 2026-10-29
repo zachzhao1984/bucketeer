@@ -3,9 +3,12 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
 	"path"
+	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/egoist/mygo"
@@ -150,6 +153,11 @@ type App struct {
 	// The themes for the system's two appearances, built once.
 	lightTheme *ui.Theme
 	darkTheme  *ui.Theme
+
+	// iconBmp is the app's own icon, read from the bundle's resources the
+	// first time the first-run page asks for it.
+	iconOnce sync.Once
+	iconBmp  *ui.Bitmap
 
 	// services is the window's clipboard and URL services, kept from the
 	// first frame so work that outlives a frame still has them.
@@ -1188,4 +1196,26 @@ func (a *App) openRecent(r recentEntry) {
 		a.openBucket(r.Bucket)
 	}
 	a.showDetail(r.Key)
+}
+
+// appIcon returns the app's own icon from the bundle's resources, or nil
+// when the build carries none. It is read once: the first-run page shows
+// it, and a frame must not touch the disk.
+func (a *App) appIcon() *ui.Bitmap {
+	a.iconOnce.Do(func() {
+		dir, err := mygo.App.Path(mygo.PathResources)
+		if err != nil {
+			return
+		}
+		b, err := os.ReadFile(filepath.Join(dir, "icon.png"))
+		if err != nil {
+			return
+		}
+		bmp, err := ui.DecodeBitmap(b)
+		if err != nil {
+			return
+		}
+		a.iconBmp = bmp
+	})
+	return a.iconBmp
 }

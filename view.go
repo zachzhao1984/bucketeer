@@ -1105,69 +1105,140 @@ func entryIcon(e store.Entry) *ui.SVG { return kindIcon(kindOf(e.Key, e.Folder))
    Welcome screen
    ------------------------------------------------------------------------- */
 
+// welcome is the first run: no connection is saved yet. The page's job is
+// to get one added, so the services the app speaks — not a feature list —
+// are what it shows.
 func (a *App) welcome(c *ui.Context) {
 	t := c.Theme()
+	ch := chromeOf(t)
 
-	ui.Column(c).Fill().Center().Gap(18).Padding(40).Children(func() {
-		ui.Column(c).Gap(8).AlignItems(ui.Center).Children(func() {
-			mark := ui.Box(c).Size(64, 64).Radius(18).Center().Shrink(0).
-				Background(ui.Transparent).Border(0, ui.Transparent)
-			mark.Draw(func(p *ui.Painter, r ui.Rect) {
-				p.Fill(r, t.Accent, 18)
-			})
-			mark.Children(func() {
-				ui.Icon(c, iconCloud).FontSize(32).TextColor(ui.Hex("#FFFFFF"))
-			})
+	ui.Column(c).Fill().Center().Padding(20, 40, 44, 40).Children(func() {
+		ui.Column(c).AlignItems(ui.Center).Children(func() {
+			a.welcomeMark(c)
 
 			ui.Text(c, "Add a connection").
-				FontSize(typeTitle).
+				FontSize(typeHero).
 				FontWeight(weightSemi).
 				TextColor(t.Text).
-				Margin(0, 0, 4, 0)
-			ui.Text(c, "Connect a bucket with an access key, or sign in to Cloudflare R2.").
+				Margin(16, 0, 0, 0)
+			ui.Text(c, "Connect a bucket with an access key.").
 				FontSize(typeBody).
 				TextColor(t.TextMuted).
 				TextAlign(ui.Center).
-				MaxWidth(400)
-		})
+				MaxWidth(430).
+				Margin(7, 0, 0, 0)
 
-		ui.Column(c).Width(320).Gap(8).Children(func() {
-			connect := ctlPrimary(c, "Connect a bucket")
-			connect.Width(320)
-			if connect.Clicked() {
-				a.openConnection(nil)
-			}
-
-			if len(a.connections) > 0 {
-				label := plural(len(a.connections), "Saved connection", "Saved connections")
-				recent := ctlButton(c, label+"…")
-				recent.Width(320)
-				if recent.Clicked() {
-					a.chipOpen = true
+			// Every service the form offers but the catch-all: that one is
+			// the custom-endpoint line below the board.
+			var presets []store.Preset
+			for _, preset := range a.svc.Providers() {
+				if preset.ID != store.ProviderOther {
+					presets = append(presets, preset)
 				}
 			}
-		})
-
-		ui.Column(c).Width(420).Gap(10).Margin(10, 0, 0, 0).Children(func() {
-			for _, point := range []struct {
-				glyph *ui.SVG
-				tint  ui.Color
-				title string
-				body  string
-			}{
-				{iconFiles, ui.Hex("#3B7DF6"), "Browse like a drive", "Switch between grid and list views, even for large buckets."},
-				{iconDashboard, ui.Hex("#8B5CF6"), "See your storage", "A living dashboard of what's in your bucket, by type and size."},
-				{iconShare, ui.Hex("#16A34A"), "Share in a click", "Presigned links with an expiry, or your own public domain."},
-			} {
-				p := point
-				ui.Row(c).Gap(12).AlignItems(ui.Start).Children(func() {
-					iconPlate(c, p.glyph, p.tint, 34)
-					ui.Column(c).Grow(1).Gap(1).Children(func() {
-						ui.Text(c, p.title).FontSize(typeBody).FontWeight(weightMedium).TextColor(t.Text)
-						ui.Text(c, p.body).FontSize(typeCaption).TextColor(t.TextMuted)
+			ui.Column(c).Gap(10).Margin(26, 0, 0, 0).Children(func() {
+				for first := 0; first < len(presets); first += 4 {
+					row := presets[first:min(first+4, len(presets))]
+					ui.Row(c).Gap(10).Children(func() {
+						for _, preset := range row {
+							a.welcomeTile(c, preset)
+						}
 					})
+				}
+			})
+
+			ui.Row(c).Gap(14).AlignItems(ui.Center).Margin(22, 0, 0, 0).Children(func() {
+				custom := ui.ButtonBase(c.Key("welcome-custom")).
+					Cursor(ui.CursorPointer).
+					Label("Use a custom endpoint")
+				custom.Children(func() {
+					ui.Text(c, "Use a custom endpoint").
+						FontSize(typeSmall).
+						FontWeight(weightMedium).
+						TextColor(t.Accent)
 				})
+				if custom.Clicked() {
+					a.openConnectionFor(store.ProviderOther)
+				}
+				ui.Box(c).Width(1).Height(12).Shrink(0).Background(ch.hairline)
+				ui.Text(c, "Any S3-compatible endpoint works").
+					FontSize(typeCaption).
+					TextColor(t.TextMuted)
+			})
+
+			if len(a.connections) > 0 {
+				ui.Text(c, plural(len(a.connections), "Saved connection", "Saved connections")+" in Settings → Connections").
+					FontSize(typeCaption).
+					TextColor(t.TextMuted).
+					Margin(14, 0, 0, 0)
 			}
 		})
 	})
+}
+
+// welcomeMark is the app's own icon, or a quiet plate when the build
+// carries none.
+func (a *App) welcomeMark(c *ui.Context) {
+	t := c.Theme()
+	ch := chromeOf(t)
+
+	if bmp := a.appIcon(); bmp != nil {
+		ui.Image(c, bmp).Size(52, 52).Shrink(0)
+		return
+	}
+	mark := ui.Box(c).Size(52, 52).Radius(13).Center().Shrink(0)
+	mark.Draw(func(p *ui.Painter, r ui.Rect) {
+		p.Fill(r, ch.plate, 13)
+		p.Stroke(r, ch.hairline, 13, 1)
+	})
+	mark.Children(func() {
+		ui.Icon(c, iconCloud).FontSize(26).TextColor(t.Accent)
+	})
+}
+
+// welcomeTile is one service on the first-run board: its own mark, its
+// name, and a click that opens the form already set to it.
+func (a *App) welcomeTile(c *ui.Context, preset store.Preset) {
+	t := c.Theme()
+	ch := chromeOf(t)
+
+	tile := ui.ButtonBase(c.Key("welcome:"+string(preset.ID))).
+		Size(152, 88).
+		Radius(12).
+		Cursor(ui.CursorPointer).
+		// A tile's name is the accessible name too; the form's own menu
+		// uses the bare service name, so the two do not read as one.
+		Label("Connect to " + preset.Label)
+	hovered := tile.Hovered()
+	tile.Draw(func(p *ui.Painter, r ui.Rect) {
+		p.Fill(r, ch.plate, 12)
+		if hovered {
+			p.Fill(r, ch.hover, 12)
+		}
+		// The first tile is where the app would start, so it carries the
+		// accent; the rest are quiet until pointed at.
+		edge := ch.hairline
+		if preset.ID == store.ProviderR2 || hovered {
+			edge = t.Accent
+		}
+		p.Stroke(r, edge, 12, 1)
+	})
+	tile.Children(func() {
+		ui.Column(c).Fill().Center().Gap(8).Children(func() {
+			if glyph := brandIcon(preset.ID); glyph != nil {
+				ui.Image(c, glyph).Size(28, 28).Shrink(0)
+			}
+			ui.Text(c, preset.Label).
+				FontSize(typeSmall).
+				FontWeight(weightMedium).
+				TextColor(t.Text).
+				TextAlign(ui.Center).
+				SingleLine().
+				Ellipsis("…").
+				MaxWidth(126)
+		})
+	})
+	if tile.Clicked() {
+		a.openConnectionFor(preset.ID)
+	}
 }

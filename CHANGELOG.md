@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- The first-run page is a board of the services the app speaks: the app's
+  own icon, one tile per service with its brand mark, and a tile click
+  opens the form already set to that service. The three feature lines are
+  gone; a custom endpoint is a line under the board.
+- Brand marks keep their own colors again in the connection list and the
+  sidebar; they had been drawn as single-color silhouettes.
+
 ## 1.3.1
 
 - Refined app icon with a transparent background, shown at the top of the

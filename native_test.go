@@ -75,6 +75,9 @@ func TestNativeNavigationAndConnectionForm(t *testing.T) {
 
 func TestNativeProviderSelectionAndEndpoint(t *testing.T) {
 	a := nativeTestApp(t)
+	// The first-run board also names every service; the settings section
+	// keeps this test pointed at the form's own provider menu.
+	a.section = sectionSettings
 	a.openConnection(nil)
 	tester := ui.NewTester(a.view, 1180, 760)
 	tester.SetTitleBar(ui.TitleBar{Height: 52, Left: 79})
@@ -928,5 +931,58 @@ func waitFor(t *testing.T, fn func() bool) {
 			t.Fatal("timed out waiting for the app to settle")
 		}
 		time.Sleep(2 * time.Millisecond)
+	}
+}
+
+// TestWelcomeBoardOffersEveryService checks the first-run board: it shows
+// the app's own icon, every saved service as a tile, and a tile click
+// opens the form already set to that service.
+func TestWelcomeBoardOffersEveryService(t *testing.T) {
+	a := nativeTestApp(t)
+	tester := ui.NewTester(a.view, 1180, 820)
+	tester.SetTitleBar(ui.TitleBar{Height: 56, Left: 79})
+	tester.Frame()
+
+	if !tester.HasText("Add a connection") {
+		t.Fatalf("the first-run page is missing: %v", tester.Texts())
+	}
+	for _, preset := range store.Presets {
+		// Spaces is kept for saved connections; Other is the
+		// custom-endpoint line under the board, not a tile.
+		if preset.ID == store.ProviderSpaces || preset.ID == store.ProviderOther {
+			continue
+		}
+		if !tester.HasText(preset.Label) {
+			t.Fatalf("the board does not offer %s", preset.Label)
+		}
+	}
+	// The feature list the board replaced is gone.
+	for _, gone := range []string{"Browse like a drive", "See your storage", "Share in a click"} {
+		if tester.HasText(gone) {
+			t.Fatalf("the old feature line %q is still on the page", gone)
+		}
+	}
+
+	// A tile opens the form on that service, not on the default one.
+	if err := tester.Click("Connect to Wasabi"); err != nil {
+		t.Fatal(err)
+	}
+	tester.Frame()
+	if a.dlg != dialogConnection {
+		t.Fatalf("a tile click opened %v, want the connection form", a.dlg)
+	}
+	if a.conn.provider != string(store.ProviderWasabi) {
+		t.Fatalf("form opened on %q, want wasabi", a.conn.provider)
+	}
+	a.dlg = dialogNone
+	tester.Frame()
+
+	// The custom-endpoint line opens the form on the catch-all service.
+	if err := tester.Click("Use a custom endpoint"); err != nil {
+		t.Fatal(err)
+	}
+	tester.Frame()
+	if a.dlg != dialogConnection || a.conn.provider != string(store.ProviderOther) {
+		t.Fatalf("custom endpoint: dialog=%v provider=%q", a.dlg, a.conn.provider)
 	}
 }
