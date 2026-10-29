@@ -57,6 +57,7 @@ type App struct {
 	settingsWrites chan Settings
 	win            *mygo.Window
 	settingsApp    *App
+	settingsOpen   bool
 	settingsOwner  *App
 	menuBarStop    func()
 	menuBarTemps   []string

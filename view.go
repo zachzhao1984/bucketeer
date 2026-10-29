@@ -27,7 +27,9 @@ func (a *App) view(c *ui.Context) {
 		a.notice = ""
 	}
 
-	a.shortcuts(c)
+	if !a.settingsOpen {
+		a.shortcuts(c)
+	}
 
 	ui.Row(c).Fill().Children(func() {
 		a.sidebar(c)
@@ -51,7 +53,10 @@ func (a *App) view(c *ui.Context) {
 		a.transfersDock(c)
 	}
 
-	a.dialogs(c)
+	if !a.settingsOpen {
+		a.dialogs(c)
+	}
+	a.settingsModal(c)
 }
 
 // shortcuts declares the window's commands.

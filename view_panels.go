@@ -359,34 +359,23 @@ const (
 )
 
 func (a *App) settings(c *ui.Context) {
-	t := c.Theme()
-
-	ui.Column(c).Fill().Padding(24).Children(func() {
-		sheet := ui.Column(c).Fill().MaxWidth(820).Radius(14).
-			Background(ui.Transparent).Border(0, ui.Transparent)
-		sheet.Draw(func(p *ui.Painter, r ui.Rect) {
-			paintPlate(p, r, 14, chromeOf(t), chromeOf(t).plate, chromeOf(t).hairline)
-		})
-		sheet.Children(func() {
-			ui.Row(c).Fill().Children(func() {
-				a.settingsSidebar(c)
-				ui.Box(c).Width(1).FillHeight().Background(chromeOf(t).hairline)
-				ui.Column(c).Grow(1).FillHeight().Padding(20, 22).Children(func() {
-					ui.Scroll(c).Grow(1).Children(func() {
-						switch a.settingsPage {
-						case pageConnections:
-							a.settingsConnections(c)
-						case pagePicGo:
-							a.settingsPicGo(c)
-						case pageCLI:
-							a.settingsCLI(c)
-						case pageAbout:
-							a.settingsAbout(c)
-						default:
-							a.settingsPreferences(c)
-						}
-					})
-				})
+	ui.Row(c).Fill().Children(func() {
+		a.settingsSidebar(c)
+		ui.Box(c).Width(1).FillHeight().Background(chromeOf(c.Theme()).hairline)
+		ui.Column(c).Grow(1).FillHeight().Padding(20, 22).Children(func() {
+			ui.Scroll(c).Grow(1).Children(func() {
+				switch a.settingsPage {
+				case pageConnections:
+					a.settingsConnections(c)
+				case pagePicGo:
+					a.settingsPicGo(c)
+				case pageCLI:
+					a.settingsCLI(c)
+				case pageAbout:
+					a.settingsAbout(c)
+				default:
+					a.settingsPreferences(c)
+				}
 			})
 		})
 	})
@@ -397,7 +386,7 @@ func (a *App) settingsSidebar(c *ui.Context) {
 	t := c.Theme()
 	ch := chromeOf(t)
 
-	ui.Column(c).Width(190).FillHeight().Padding(10, 8).Gap(2).Children(func() {
+	ui.Column(c).Width(190).FillHeight().Padding(10, 8).Gap(2).Background(ch.sidebar).Children(func() {
 		ui.Text(c, "Settings").FontSize(typeSmall).TextColor(t.TextMuted).Padding(6, 10, 8, 10)
 
 		pages := []struct {
@@ -763,7 +752,7 @@ func (a *App) persistSettings() {
 		child.prefs = a.prefs
 	}
 	root.syncMenuBar()
-	root.invalidatePreferenceWindows()
+	root.invalidatePreferences()
 	root.settingsWrites <- a.prefs
 }
 

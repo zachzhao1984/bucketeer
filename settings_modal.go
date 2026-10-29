@@ -1,12 +1,9 @@
 package main
 
-import (
-	"github.com/egoist/mygo"
-	"github.com/egoist/mygo/ui"
-)
+import "github.com/egoist/mygo/ui"
 
-// A settings controller owns its widget state, dialogs, services and window.
-// The root controller owns shared preferences, connections and their lifetime.
+// A settings controller owns its widget state and nested dialogs.
+// Both controllers render in the main window; preferences remain shared.
 func (a *App) newSettingsController() *App {
 	child := newApp(a.svc)
 	child.settingsOwner = a
@@ -27,30 +24,44 @@ func (a *App) openSettingsPage(page settingsPage) {
 		a.settingsApp = child
 	}
 	child.settingsPage = page
+	child.win = a.win
+	a.settingsOpen = true
 	if a.win != nil {
 		a.refreshConnections()
-	}
-	if a.win != nil && child.win == nil {
-		child.win = mygo.NewWindow(mygo.WindowOptions{
-			Title: "Bucketeer Settings", Width: 900, Height: 680, MinWidth: 820, MinHeight: 560,
-			StateKey: "settings", BackgroundColor: "light-dark(#FBFAF6, #151312)",
-			Content: ui.View(child.settingsView),
-		})
-		child.win.OnClosed(func() {
-			child.cancel()
-			if a.settingsApp == child {
-				a.settingsApp = nil
-			}
-		})
+		a.win.Show()
+		a.win.Focus()
+		a.win.Invalidate()
 	}
 	if page == pageCLI {
 		child.refreshCLIState()
 	}
-	if child.win != nil {
-		child.win.Show()
-		child.win.Focus()
-		child.win.Invalidate()
+}
+
+func (a *App) settingsModal(c *ui.Context) {
+	if !a.settingsOpen || a.settingsApp == nil {
+		return
 	}
+	t := c.Theme()
+	ch := chromeOf(t)
+	width, height := c.Size()
+	open := a.settingsOpen
+	ui.DialogBase(c.Key("settings-modal"), &open, func(back, panel ui.Element) {
+		back.Background(ch.scrim)
+		panel.Width(min(900, width-48)).Height(min(680, height-48)).Radius(14).Clip().
+			Background(ch.canvas).Border(1, ch.hairline)
+		panel.Draw(func(p *ui.Painter, r ui.Rect) {
+			p.Shadow(r, 14, 0, 20, 60, 0, ch.floatShadow)
+		})
+		ui.Row(c).FillWidth().Height(44).Padding(0, 16).AlignItems(ui.Center).Children(func() {
+			ui.Text(c, "Settings").FontSize(typeBody).FontWeight(weightMedium).Grow(1)
+			close := ctlIconButtonBare(c, "Close Settings")
+			close.Children(func() { ui.Icon(c, iconClose).FontSize(14).TextColor(t.TextMuted) })
+			close.OnClick(func() { a.settingsOpen = false })
+		})
+		ui.Box(c).FillWidth().Height(1).Background(ch.hairline)
+		a.settingsApp.settingsView(c)
+	})
+	a.settingsOpen = open
 }
 
 func (a *App) settingsView(c *ui.Context) {
@@ -75,18 +86,12 @@ func (a *App) syncSettingsConnection() {
 	if child := a.settingsApp; child != nil {
 		child.connections = a.connections
 		child.session = a.session
-		if child.win != nil {
-			child.win.Invalidate()
-		}
 	}
 }
 
-func (a *App) invalidatePreferenceWindows() {
+func (a *App) invalidatePreferences() {
 	if a.win != nil {
 		a.win.Invalidate()
-	}
-	if child := a.settingsApp; child != nil && child.win != nil {
-		child.win.Invalidate()
 	}
 }
 

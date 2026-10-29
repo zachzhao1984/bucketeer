@@ -42,11 +42,10 @@ func TestNativeNavigationAndConnectionForm(t *testing.T) {
 		t.Fatal(err)
 	}
 	tester.Frame()
-	if a.settingsApp == nil {
-		t.Fatal("Settings window controller missing")
+	if a.settingsApp == nil || !a.settingsOpen {
+		t.Fatal("Settings modal controller missing")
 	}
 	a = a.settingsApp
-	tester = ui.NewTester(a.settingsView, 900, 680)
 	if !tester.HasText("Preferences") {
 		t.Fatalf("Settings did not open: %v", tester.Texts())
 	}
@@ -432,7 +431,7 @@ func TestFlows(t *testing.T) {
 	a.transfersOpen = false
 	tester.Frame()
 
-	// Settings has its own window; opening it preserves the file browser.
+	// Settings is a modal; opening it preserves the file browser.
 	if err := tester.Click("Settings"); err != nil {
 		t.Fatal(err)
 	}
@@ -440,7 +439,6 @@ func TestFlows(t *testing.T) {
 	if a.section != sectionFiles || a.settingsApp == nil {
 		t.Fatal("Settings replaced the browser")
 	}
-	tester = ui.NewTester(a.settingsApp.settingsView, 900, 680)
 	for _, page := range []string{"Connections", "About", "Preferences"} {
 		if err := tester.Click(page); err != nil {
 			t.Fatalf("page %s: %v", page, err)
@@ -789,7 +787,7 @@ func TestOpenSettingsPutsPreferencesForward(t *testing.T) {
 	a.section = sectionFiles
 	a.settingsPage = pageCLI
 	a.openSettings()
-	if a.section != sectionFiles || a.settingsApp == nil || a.settingsApp.settingsPage != pagePreferences {
+	if !a.settingsOpen || a.section != sectionFiles || a.settingsApp == nil || a.settingsApp.settingsPage != pagePreferences {
 		t.Fatalf("openSettings replaced the browser or did not open Preferences")
 	}
 }
