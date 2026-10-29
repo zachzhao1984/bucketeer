@@ -3,6 +3,7 @@ module bucketeer
 go 1.27.3
 
 require (
+	github.com/ebitengine/purego v0.11.1
 	github.com/egoist/mygo v0.7.2
 	github.com/minio/minio-go/v7 v7.4.1
 	golang.org/x/image v0.46.0
@@ -11,7 +12,6 @@ require (
 require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
-	github.com/ebitengine/purego v0.11.1 // indirect
 	github.com/go-text/typesetting v0.3.5 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/klauspost/compress v1.19.2 // indirect

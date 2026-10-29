@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Menu bar uploads also work with MyGo's default CGO-free dev and release
+  builds; the native bridge uses purego/objc instead of a CGO-only implementation.
 - macOS menu bar uploads: drop files, folders, or PNG/TIFF images onto the
   icon to upload to a saved default connection and bucket. Set the destination
   with Use Current Bucket as Default; uploads keep running when the window
