@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.4.0
 
 - MyGo 0.7.2, with the toolchain it needs (Go 1.27.3). 0.7 names the
   Windows installer `<slug>-setup-<version>-<arch>.exe` and disk images
