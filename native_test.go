@@ -99,6 +99,9 @@ func TestNativeProviderSelectionAndEndpoint(t *testing.T) {
 			t.Fatalf("missing provider %q in menu", preset.Label)
 		}
 	}
+	if tester.HasText("MinIO") {
+		t.Fatal("MinIO remains in the provider menu")
+	}
 	if err := tester.Click("Tencent Cloud COS"); err != nil {
 		t.Fatal(err)
 	}
@@ -122,6 +125,15 @@ func TestNativeProviderSelectionAndEndpoint(t *testing.T) {
 	in, ok = a.connInput()
 	if !ok || in.Endpoint != a.conn.endpoint {
 		t.Fatalf("manual endpoint=%q, ok=%v", in.Endpoint, ok)
+	}
+
+	// Existing MinIO profiles keep their own preset and path-style setting.
+	minio := store.Profile{ID: "minio", Name: "Local MinIO", Provider: store.ProviderMinIO,
+		Endpoint: "http://localhost:9000", Region: "us-east-1", PathStyle: true}
+	a.openConnection(&minio)
+	tester.Frame()
+	if a.providerLabel() != "MinIO" || !a.conn.pathStyle || a.conn.endpoint != minio.Endpoint {
+		t.Fatal("saved MinIO connection lost its settings")
 	}
 
 	// Saved Spaces profiles can still be opened and edited after the menu
@@ -970,6 +982,9 @@ func TestWelcomeBoardOffersEveryService(t *testing.T) {
 		if !tester.HasText(preset.Label) {
 			t.Fatalf("the board does not offer %s", preset.Label)
 		}
+	}
+	if tester.HasText("MinIO") {
+		t.Fatal("MinIO remains on the new-connection board")
 	}
 	// The feature list the board replaced is gone.
 	for _, gone := range []string{"Browse like a drive", "See your storage", "Share in a click"} {

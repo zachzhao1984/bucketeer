@@ -104,14 +104,6 @@ var Presets = []Preset{
 		Note:            "The region is the one in the endpoint's host name; Wasabi's keys are plain access and secret keys.",
 	},
 	{
-		ID:           ProviderMinIO,
-		Label:        "MinIO",
-		EndpointHint: "http://localhost:9000",
-		Region:       "us-east-1",
-		Note:         "Self-hosted MinIO answers path-style requests, so the path-style switch below is already on.",
-		PathStyle:    true,
-	},
-	{
 		ID:              ProviderOSS,
 		Label:           "Alibaba Cloud OSS",
 		EndpointHint:    "https://s3.oss-cn-hangzhou.aliyuncs.com",
@@ -138,7 +130,13 @@ var Presets = []Preset{
 	},
 }
 
-// Old Spaces connections remain editable, but Spaces is no longer a menu item.
+// Legacy profiles remain editable without being offered for new connections.
+var legacyMinIOPreset = Preset{
+	ID: ProviderMinIO, Label: "MinIO", EndpointHint: "http://localhost:9000",
+	Region: "us-east-1", PathStyle: true,
+	Note: "Self-hosted MinIO answers path-style requests, so the path-style switch below is already on.",
+}
+
 var legacySpacesPreset = Preset{
 	ID: ProviderSpaces, Label: "DigitalOcean Spaces",
 	EndpointHint: "https://nyc3.digitaloceanspaces.com", Region: "nyc3",
@@ -147,6 +145,9 @@ var legacySpacesPreset = Preset{
 
 // PresetFor returns the preset of provider, and whether one exists.
 func PresetFor(p Provider) (Preset, bool) {
+	if p == ProviderMinIO {
+		return legacyMinIOPreset, true
+	}
 	if p == ProviderSpaces {
 		return legacySpacesPreset, true
 	}

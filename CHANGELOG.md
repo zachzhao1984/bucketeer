@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- New connections offer six branded providers; existing MinIO profiles remain
+  usable. Amazon S3 uses the S3 Standard-IA icon from theSVG.
+
 - The Settings entry is in the connection menu, alongside connection actions.
 
 - Settings opens as a centered modal over the main window, preserving the

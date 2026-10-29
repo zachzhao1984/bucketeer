@@ -1127,8 +1127,8 @@ func (a *App) welcome(c *ui.Context) {
 				}
 			}
 			ui.Column(c).Gap(12).Margin(26, 0, 0, 0).Children(func() {
-				for first := 0; first < len(presets); first += 4 {
-					row := presets[first:min(first+4, len(presets))]
+				for first := 0; first < len(presets); first += 3 {
+					row := presets[first:min(first+3, len(presets))]
 					ui.Row(c).FillWidth().Justify(ui.Center).Gap(12).Children(func() {
 						for _, preset := range row {
 							a.welcomeTile(c, preset)

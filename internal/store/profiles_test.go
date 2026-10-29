@@ -385,7 +385,6 @@ func TestPresetsAreTheOfferedServices(t *testing.T) {
 		{ProviderAWS, "Amazon S3"},
 		{ProviderB2, "Backblaze B2"},
 		{ProviderWasabi, "Wasabi"},
-		{ProviderMinIO, "MinIO"},
 		{ProviderOSS, "Alibaba Cloud OSS"},
 		{ProviderCOS, "Tencent Cloud COS"},
 		{ProviderOther, "Other S3-compatible"},
