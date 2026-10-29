@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- The menu bar icon derives from the app's bucket-and-cards artwork, rendered
+  as a monochrome template that follows the menu bar appearance.
+
 - Menu bar uploads also work with MyGo's default CGO-free dev and release
   builds; the native bridge uses purego/objc instead of a CGO-only implementation.
 - macOS menu bar uploads: drop files, folders, or PNG/TIFF images onto the

@@ -3,6 +3,7 @@
 package main
 
 import (
+	_ "embed"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,6 +13,9 @@ import (
 	"github.com/ebitengine/purego/objc"
 	"github.com/egoist/mygo"
 )
+
+//go:embed assets/menubar-template.png
+var menuBarIconPNG []byte
 
 // MyGo deliberately builds with CGO_ENABLED=0 by default, including dev.
 // Use the same Objective-C runtime bridge as MyGo so this code is included
@@ -136,8 +140,12 @@ func startMenuBar(a *App) func() {
 	button := mbSend(m.item, "button")
 	// Let NSStatusBarButton paint and tint the template, rather than drawing a
 	// template image manually in a custom view (which misses menu-bar tinting).
-	image := mbSend(mbClass("NSImage"), "imageWithSystemSymbolName:accessibilityDescription:", mbString("shippingbox.fill"), mbString("Bucketeer"))
+	data := mbSend(mbClass("NSData"), "dataWithBytes:length:", unsafe.Pointer(&menuBarIconPNG[0]), len(menuBarIconPNG))
+	image := mbSend(mbSend(mbClass("NSImage"), "alloc"), "initWithData:", data)
+	mbSend(image, "setSize:", menuBarPoint{X: 18, Y: 18})
+	mbSend(image, "setTemplate:", true)
 	mbSend(button, "setImage:", image)
+	mbSend(image, "release")
 	rect := objc.Send[menuBarRect](button, objc.RegisterName("bounds"))
 	m.view = mbSend(mbSend(objc.ID(class), "alloc"), "initWithFrame:", rect)
 	mbSend(m.view, "setAutoresizingMask:", uintptr(2|16)) // flexible width and height
