@@ -15,6 +15,8 @@ Works with Cloudflare R2, Amazon S3, MinIO, Backblaze B2, Wasabi, Alibaba
 Cloud OSS, Tencent Cloud COS, DigitalOcean Spaces, and any other endpoint
 that speaks the S3 API.
 
+![Bucketeer dashboard showing storage by folder and by type for a Cloudflare R2 bucket](docs/screenshot.png)
+
 ## Download
 
 Releases carry a universal macOS disk image and a Windows installer:
