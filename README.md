@@ -2,7 +2,7 @@
   <img src="resources/icon.png" width="200" alt="Bucketeer app icon">
 </p>
 
-# Bucketeer
+# Bucketeer [![Listed on Awesome MyGo](https://awesomemygo.dev/badge.svg)](https://awesomemygo.dev/apps/bucketeer)
 
 A cross-platform desktop client for S3-compatible object storage, built with
 [MyGo](https://github.com/egoist/mygo) using 100% **Native UI** (`github.com/egoist/mygo/ui`).
