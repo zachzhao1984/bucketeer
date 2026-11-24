@@ -203,3 +203,7 @@ traffic lights over the sidebar. MyGo reports the room they take in
 `c.TitleBar()` (`Height`, `Left`, `Right`), and the sidebar reserves that
 strip as a drag region, which is why the app's own name is not printed over
 it.
+
+## License
+
+[MIT](LICENSE) © 2026 Zach Zhao
